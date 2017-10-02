@@ -1,7 +1,7 @@
 package src
 
 type UserInfo struct {
-	username string
-	password string
-	following []*UserInfo
+	Username string
+	Password string
+	Following []*UserInfo
 }
