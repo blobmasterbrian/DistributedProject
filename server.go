@@ -1,6 +1,7 @@
 package main
 
 import(
+    "html/template"
     "fmt"
     "net/http"
     src "../DistributedProject/src"
@@ -9,7 +10,7 @@ import(
 var USERS map[string]src.UserInfo
 
 func main(){
-
+    http.HandleFunc("/home",home)
     http.HandleFunc("/signupsubmit", signup)
     http.ListenAndServe(":8080", nil)
 }
@@ -29,4 +30,9 @@ func login(w http.ResponseWriter, r *http.Request) {
     if r.Method == http.MethodPost {
         r.ParseForm()
     }
+}
+
+func home(w http.ResponseWriter, r *http.Request){
+    t, _ := template.ParseFiles("web/homepage.html")
+    t.Execute(w, "Charlie")
 }
