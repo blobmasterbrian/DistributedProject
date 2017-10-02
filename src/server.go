@@ -5,8 +5,6 @@ import(
     "net/http"
 )
 
-
-
 func main(){
     http.HandleFunc("/signupsubmit", signup)
     http.ListenAndServe(":8080", nil)
