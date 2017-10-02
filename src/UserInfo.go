@@ -1,4 +1,4 @@
-package main
+package src
 
 type UserInfo struct {
 	username string
