@@ -4,12 +4,14 @@ import(
     "html/template"
     "fmt"
     "net/http"
-    src "../DistributedProject/src"
+    . "../DistributedProject/src"
 )
 
-var USERS map[string]src.UserInfo
+var USERS map[string]UserInfo
 
 func main(){
+    serverInit()
+
     http.HandleFunc("/", welcomeRedirect)
     http.HandleFunc("/welcome", welcome)
     http.HandleFunc("/signup", signup)
@@ -22,8 +24,12 @@ func main(){
     http.ListenAndServe(":8080", nil)
 }
 
+func serverInit(){
+    USERS = make(map[string]UserInfo)
+}
+
 func welcomeRedirect(w http.ResponseWriter, r *http.Request) {
-    http.Redirect(w, r, "/welcome", http.StatusPermanentRedirect)
+    http.Redirect(w, r, "/welcome", 308 )
 }
 
 func welcome(w http.ResponseWriter, r *http.Request) {
@@ -52,19 +58,23 @@ func signupResponse(w http.ResponseWriter, r *http.Request) {
     if r.Method == http.MethodPost {
         r.ParseForm()
         if r.PostFormValue("password") != r.PostFormValue("confirm") {
-            http.Redirect(w, r, "/error", http.StatusPermanentRedirect)
+            http.Redirect(w, r, "/error", 308)
             return
         }
-        http.Redirect(w, r, "/home", http.StatusPermanentRedirect)
-        fmt.Printf("Username: %s, Password: %s, Confirmed Pass: %s\n", r.PostFormValue("username"),
-            r.PostFormValue("password"), r.PostFormValue("confirm"))
+        newUser := UserInfo{Username:r.PostFormValue("username"), Password:r.PostFormValue("password")}
+        USERS[r.PostFormValue("username")] = newUser
+        http.Redirect(w, r, "/home", 308)
+        fmt.Printf("Username: %s, Password: %s, Confirmed Pass: %s\n",
+            USERS[r.PostFormValue("username")].Username,
+            USERS[r.PostFormValue("username")].Password,
+            r.PostFormValue("confirm"))
     }
 }
 
 func loginResponse(w http.ResponseWriter, r *http.Request) {
     if r.Method == http.MethodPost {
         r.ParseForm()
-        http.Redirect(w, r, "/home", http.StatusPermanentRedirect)
+        http.Redirect(w, r, "/home", 308)
         fmt.Printf("Username: %s, Password: %s\n", r.PostFormValue("username"),
             r.PostFormValue("password"))
     }
