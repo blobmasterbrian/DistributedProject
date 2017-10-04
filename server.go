@@ -32,7 +32,7 @@ func welcomeRedirect(w http.ResponseWriter, r *http.Request) {
 }
 
 func welcome(w http.ResponseWriter, r *http.Request) {
-    exists, _ := loggedInRedirect(w, r)
+    exists, _ := getCookie(w, r)
     if exists {
         http.Redirect(w, r, "/home", http.StatusSeeOther)
         return
@@ -41,7 +41,7 @@ func welcome(w http.ResponseWriter, r *http.Request) {
 }
 
 func signup(w http.ResponseWriter, r *http.Request) {
-    exists, _ := loggedInRedirect(w, r)
+    exists, _ := getCookie(w, r)
     if exists {
         http.Redirect(w, r, "/home", http.StatusSeeOther)
         return
@@ -50,7 +50,7 @@ func signup(w http.ResponseWriter, r *http.Request) {
 }
 
 func login(w http.ResponseWriter, r *http.Request) {
-    exists, _ := loggedInRedirect(w, r)
+    exists, _ := getCookie(w, r)
     if exists {
         http.Redirect(w, r, "/home", http.StatusSeeOther)
         return
@@ -59,7 +59,7 @@ func login(w http.ResponseWriter, r *http.Request) {
 }
 
 func home(w http.ResponseWriter, r *http.Request) {
-    exists, cookie := loggedInRedirect(w, r)
+    exists, cookie := getCookie(w, r)
     if !exists {
         http.Redirect(w, r, "/welcome", http.StatusSeeOther)
         return
@@ -74,16 +74,42 @@ func errorPage(w http.ResponseWriter, r *http.Request) {
 }
 
 func follow(w http.ResponseWriter, r *http.Request) {
-    exists, _ := loggedInRedirect(w, r)
+    exists, cookie := getCookie(w, r)
     if !exists {
         http.Redirect(w, r, "/welcome", http.StatusSeeOther)
         return
     }
-    if r.Method == http.MethodGet{
+    if r.Method == http.MethodPost{
         r.ParseForm()
-        fmt.Println("I made it")
-        fmt.Println(r.FormValue("username"))
+        if USERS[cookie.Value] == nil {
+            return
+        }
+        if !USERS[cookie.Value].Follow(r.PostFormValue("username")){
+            http.Redirect(w,r, "/error", http.StatusSeeOther)
+        } else {
+            http.Redirect(w,r,"/home", http.StatusSeeOther)
+        }
     }
+}
+
+func unfollow(w http.ResponseWriter, r *http.Request){
+    exists, cookie := getCookie(w, r)
+    if !exists {
+        http.Redirect(w, r, "/welcome", http.StatusSeeOther)
+        return
+    }
+    if r.Method == http.MethodPost {
+        r.ParseForm()
+        if USERS[cookie.Value] == nil {
+            return
+        }
+        if !Users[cookie.Value].UnFollow(r.PostFormValue("username")){
+            http.Redirect(w, r, "/error", http.StatusSeeOther)
+        } else {
+            http.Redirect(w, r, "/home", http.StatusSeeOther)
+        }
+    }
+
 }
 
 func signupResponse(w http.ResponseWriter, r *http.Request) {
@@ -123,7 +149,7 @@ func loginResponse(w http.ResponseWriter, r *http.Request) {
 }
 
 func searchResponse(w http.ResponseWriter, r *http.Request) {
-    exists, _ := loggedInRedirect(w, r)
+    exists, _ := getCookie(w, r)
     if !exists {
         http.Redirect(w, r, "/welcome", http.StatusSeeOther)
         return
@@ -137,7 +163,7 @@ func searchResponse(w http.ResponseWriter, r *http.Request) {
     }
 }
 
-func loggedInRedirect(w http.ResponseWriter, r *http.Request) (LoggedIn bool, Cookie *http.Cookie) {
+func getCookie(w http.ResponseWriter, r *http.Request) (LoggedIn bool, Cookie *http.Cookie) {
     cookie, err := r.Cookie(LOGINCOOKIE)
     if err != nil {
         fmt.Println(err)
