@@ -7,6 +7,10 @@
     <body>
         <h1>
             Found User: {{.Username}}
+            <form action="http://127.0.0.1:8080/follow" method="get">
+                <input type="hidden" name="username" value="/{{.Username}}">
+                <input type="submit" value="Follow">
+            </form>
         </h1>
     </body>
 </html>

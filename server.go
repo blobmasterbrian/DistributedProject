@@ -18,6 +18,7 @@ func main(){
     http.HandleFunc("/login", login)
     http.HandleFunc("/home",home)
     http.HandleFunc("/error", errorPage)
+    http.HandleFunc("/follow",follow)
 
     http.HandleFunc("/signup-response", signupResponse)
     http.HandleFunc("/login-response", loginResponse)
@@ -53,6 +54,14 @@ func home(w http.ResponseWriter, r *http.Request) {
 func errorPage(w http.ResponseWriter, r *http.Request) {
     t, _ := template.ParseFiles("web/error.html")
     t.Execute(w, struct {Name string; Error string}{Name: "Dave", Error: "Singularity"})
+}
+
+func follow(w http.ResponseWriter, r *http.Request){
+    if r.Method == http.MethodGet{
+        r.ParseForm()
+        fmt.Println("I made it")
+        fmt.Println(r.FormValue("username"))
+    }
 }
 
 func signupResponse(w http.ResponseWriter, r *http.Request) {
