@@ -21,6 +21,7 @@ func main(){
 
     http.HandleFunc("/signup-response", signupResponse)
     http.HandleFunc("/login-response", loginResponse)
+    http.HandleFunc("/search-response",searchResponse)
     http.ListenAndServe(":8080", nil)
 }
 
@@ -57,7 +58,7 @@ func errorPage(w http.ResponseWriter, r *http.Request) {
 func signupResponse(w http.ResponseWriter, r *http.Request) {
     if r.Method == http.MethodPost {
         r.ParseForm()
-        if r.PostFormValue("password") != r.PostFormValue("confirm") {
+        if (r.PostFormValue("password") != r.PostFormValue("confirm")) || USERS[r.PostFormValue("username")] != nil {
             http.Redirect(w, r, "/error", 308)
             return
         }
@@ -75,13 +76,25 @@ func loginResponse(w http.ResponseWriter, r *http.Request) {
     if r.Method == http.MethodPost {
         r.ParseForm()
 
-        if USERS[r.PostFormValue("username")] != nil && USERS[r.PostFormValue("username")].Password == r.PostFormValue("password") {
+        if USERS[r.PostFormValue("username")] != nil &&
+            USERS[r.PostFormValue("username")].Password == r.PostFormValue("password") {
+
             http.Redirect(w, r, "/home", 308)
             fmt.Printf("Username: %s, Password: %s\n", r.PostFormValue("username"),
                 r.PostFormValue("password"))
         } else{
             fmt.Println(USERS[r.PostFormValue("username")])
             http.Redirect(w,r,"/error",308)
+        }
+    }
+}
+
+func searchResponse(w http.ResponseWriter, r *http.Request){
+    if r.Method == http.MethodGet{
+        r.ParseForm()
+        if USERS[r.FormValue("username")] != nil {
+            t, _ := template.ParseFiles("web/searchResult.html")
+            t.Execute(w, struct{Username string; Link string}{Username: r.FormValue("username"), Link: "temp"})
         }
     }
 }
