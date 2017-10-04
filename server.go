@@ -16,6 +16,7 @@ func main(){
     http.HandleFunc("/welcome", welcome)
     http.HandleFunc("/signup", signup)
     http.HandleFunc("/login", login)
+    //http.HandleFunc("/logout", logout)
     http.HandleFunc("/home",home)
     http.HandleFunc("/error", errorPage)
     http.HandleFunc("/follow",follow)
@@ -58,6 +59,10 @@ func login(w http.ResponseWriter, r *http.Request) {
     http.ServeFile(w, r, "web/login.html")
 }
 
+//func logout(w http.ResponseWriter, r *http.Request) {
+//    http.SetCookie(w, nil)
+//}
+
 func home(w http.ResponseWriter, r *http.Request) {
     exists, cookie := getCookie(w, r)
     if !exists {
@@ -84,7 +89,7 @@ func follow(w http.ResponseWriter, r *http.Request) {
         if USERS[cookie.Value] == nil {
             return
         }
-        if !USERS[cookie.Value].Follow(r.PostFormValue("username")){
+        if !USERS[cookie.Value].Follow(USERS[r.PostFormValue("username")]){
             http.Redirect(w,r, "/error", http.StatusSeeOther)
         } else {
             http.Redirect(w,r,"/home", http.StatusSeeOther)
@@ -103,7 +108,7 @@ func unfollow(w http.ResponseWriter, r *http.Request){
         if USERS[cookie.Value] == nil {
             return
         }
-        if !Users[cookie.Value].UnFollow(r.PostFormValue("username")){
+        if !USERS[cookie.Value].UnFollow(USERS[r.PostFormValue("username")]){
             http.Redirect(w, r, "/error", http.StatusSeeOther)
         } else {
             http.Redirect(w, r, "/home", http.StatusSeeOther)
@@ -181,3 +186,10 @@ func genCookie(username string) *http.Cookie {
         Expires:  time.Now().Add(24 * time.Hour),
     }
 }
+
+//func clearCookie(w http.ResponseWriter, cookieName string) {
+//    http.SetCookie(w, &http.Cookie{
+//        Name:     LOGINCOOKIE,
+//        Expires:  time.Now(),
+//    })
+//}
