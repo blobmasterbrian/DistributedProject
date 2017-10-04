@@ -7,7 +7,7 @@ import(
     . "../DistributedProject/src"
 )
 
-var USERS map[string]UserInfo
+var USERS map[string]*UserInfo
 
 func main(){
     serverInit()
@@ -25,7 +25,7 @@ func main(){
 }
 
 func serverInit(){
-    USERS = make(map[string]UserInfo)
+    USERS = make(map[string]*UserInfo)
 }
 
 func welcomeRedirect(w http.ResponseWriter, r *http.Request) {
@@ -61,7 +61,7 @@ func signupResponse(w http.ResponseWriter, r *http.Request) {
             http.Redirect(w, r, "/error", 308)
             return
         }
-        newUser := UserInfo{Username:r.PostFormValue("username"), Password:r.PostFormValue("password")}
+        newUser := &UserInfo{Username:r.PostFormValue("username"), Password:r.PostFormValue("password")}
         USERS[r.PostFormValue("username")] = newUser
         http.Redirect(w, r, "/home", 308)
         fmt.Printf("Username: %s, Password: %s, Confirmed Pass: %s\n",
@@ -74,8 +74,14 @@ func signupResponse(w http.ResponseWriter, r *http.Request) {
 func loginResponse(w http.ResponseWriter, r *http.Request) {
     if r.Method == http.MethodPost {
         r.ParseForm()
-        http.Redirect(w, r, "/home", 308)
-        fmt.Printf("Username: %s, Password: %s\n", r.PostFormValue("username"),
-            r.PostFormValue("password"))
+
+        if USERS[r.PostFormValue("username")] != nil && USERS[r.PostFormValue("username")].Password == r.PostFormValue("password") {
+            http.Redirect(w, r, "/home", 308)
+            fmt.Printf("Username: %s, Password: %s\n", r.PostFormValue("username"),
+                r.PostFormValue("password"))
+        } else{
+            fmt.Println(USERS[r.PostFormValue("username")])
+            http.Redirect(w,r,"/error",308)
+        }
     }
 }
