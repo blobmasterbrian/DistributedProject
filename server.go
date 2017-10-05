@@ -21,6 +21,7 @@ func main(){
     http.HandleFunc("/error", errorPage)
     http.HandleFunc("/follow", follow)
     http.HandleFunc("/unfollow", unfollow)
+    http.HandleFunc("/submit-post", submitPost)
 
     http.HandleFunc("/signup-response", signupResponse)
     http.HandleFunc("/login-response", loginResponse)
@@ -117,6 +118,13 @@ func unfollow(w http.ResponseWriter, r *http.Request){
         }
     }
 
+}
+
+func submitPost(w http.ResponseWriter, r *http.Request) {
+    if r.Method == http.MethodPost {
+        r.ParseForm()
+        fmt.Println(r.PostFormValue("post"))
+    }
 }
 
 func signupResponse(w http.ResponseWriter, r *http.Request) {

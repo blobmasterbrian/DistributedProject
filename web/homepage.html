@@ -8,11 +8,19 @@
         <h1>
         Welcome, {{ . }}
         </h1>
-	Search Users:
+	    Search Users:
         <form action="http://127.0.0.1:8080/search-response" method="get">
 	        <input type="text" name="username">
             <input type="submit" name="submit" value="search">
         </form>
+        <br>
+        Post:
+        <br>
+        <form action="http://127.0.0.1:8080/submit-post" method="post">
+            <textarea maxlength="100" rows="4" cols="50" name="post"></textarea>
+            <input type="submit" value="post">
+        </form>
+        <br>
         <a href="http://127.0.0.1:8080/logout">Log out</a>
     </body>
 </html>
