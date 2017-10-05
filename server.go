@@ -95,6 +95,10 @@ func follow(w http.ResponseWriter, r *http.Request) {
         if !USERS[cookie.Value].Follow(USERS[r.PostFormValue("username")]){
             http.Redirect(w,r, "/error", http.StatusSeeOther)
         } else {
+            x := USERS[cookie.Value].GetAllChirps()
+            for _,i := range x {
+                fmt.Println(i)
+            }
             http.Redirect(w,r,"/home", http.StatusSeeOther)
         }
     }
@@ -121,9 +125,14 @@ func unfollow(w http.ResponseWriter, r *http.Request){
 }
 
 func submitPost(w http.ResponseWriter, r *http.Request) {
+    exists, cookie := getCookie(w,r)
+    if !exists || USERS[cookie.Value] == nil{
+        http.Redirect(w, r, "/welcome", http.StatusSeeOther)
+        return
+    }
     if r.Method == http.MethodPost {
         r.ParseForm()
-        fmt.Println(r.PostFormValue("post"))
+        USERS[cookie.Value].WritePost(r.PostFormValue("post"))
     }
 }
 

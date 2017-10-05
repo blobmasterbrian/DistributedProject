@@ -83,13 +83,13 @@ func (user *UserInfo) WritePost(msg string){
 }
 
 func (user *UserInfo) GetAllChirps() []post {
-    var result []post
+    var result = []post{}
 
-    allChirps := make(PriorityQueue, 10)
+    var allChirps PriorityQueue
     heap.Init(&allChirps)
     for _, followed := range user.following {
         for _, singlePost := range followed.posts {
-            heap.Push(&allChirps,singlePost)
+            heap.Push(&allChirps, &singlePost)
         }
     }
     for allChirps.Len() > 0 {
