@@ -10,7 +10,7 @@ type UserInfo struct {
 	Username string
 	password string
 	following map[string]*UserInfo
-    posts []post
+    posts []Post
 }
 
 func NewUserInfo(username, password string) *UserInfo {
@@ -21,18 +21,19 @@ func NewUserInfo(username, password string) *UserInfo {
     return newUser
 }
 
-type post struct {
-    stamp time.Time
-    message string
-    index int       //index of post in priority queue
+type Post struct {
+    Stamp time.Time
+    Message string
+    Poster string
+    index int        //index of post in priority queue
 }
 
-type PriorityQueue []*post
+type PriorityQueue []*Post
 
 func (q PriorityQueue) Len() int {return len(q)}
 
 func (q PriorityQueue) Less(i, j int) bool {
-    return q[i].stamp.Before(q[j].stamp)
+    return q[i].Stamp.Before(q[j].Stamp)
 }
 
 func (q PriorityQueue) Swap(i,j int) {
@@ -43,7 +44,7 @@ func (q PriorityQueue) Swap(i,j int) {
 
 func (q *PriorityQueue) Push(x interface{}){
     newLen := len(*q)
-    newPost := x.(*post)
+    newPost := x.(*Post)
     newPost.index = newLen
     *q = append(*q, newPost)
 }
@@ -78,12 +79,12 @@ func (user *UserInfo) UnFollow(oldFollow *UserInfo) bool {
 }
 
 func (user *UserInfo) WritePost(msg string){
-    newPost := post{message: msg, stamp: time.Now()}
+    newPost := Post{Stamp: time.Now(), Message: msg, Poster: user.Username}
     user.posts = append(user.posts, newPost)
 }
 
-func (user *UserInfo) GetAllChirps() []post {
-    var result = []post{}
+func (user *UserInfo) GetAllChirps() []Post {
+    var result = []Post{}
 
     var allChirps PriorityQueue
     heap.Init(&allChirps)
@@ -93,7 +94,7 @@ func (user *UserInfo) GetAllChirps() []post {
         }
     }
     for allChirps.Len() > 0 {
-        result = append(result, *heap.Pop(&allChirps).(*post))
+        result = append(result, *heap.Pop(&allChirps).(*Post))
     }
     return result
 }
