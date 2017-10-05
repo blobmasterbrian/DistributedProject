@@ -92,5 +92,8 @@ func (user *UserInfo) GetAllChirps() []post {
             heap.Push(&allChirps,singlePost)
         }
     }
+    for allChirps.Len() > 0 {
+        result = append(result, *heap.Pop(&allChirps).(*post))
+    }
     return result
 }
