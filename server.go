@@ -35,6 +35,9 @@ func welcomeRedirect(w http.ResponseWriter, r *http.Request) {
 }
 
 func welcome(w http.ResponseWriter, r *http.Request) {
+    w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+    w.Header().Set("Pragma", "no-cache")
+    w.Header().Set("Expires", "0")
     exists, _ := getCookie(w, r)
     if exists {
         http.Redirect(w, r, "/home", http.StatusSeeOther)  // redirect to home if the user is already logged in
