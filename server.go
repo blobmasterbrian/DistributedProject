@@ -8,36 +8,36 @@ import(
     "time"
 )
 
-var USERS = map[string]*UserInfo{}
-const LOGIN_COOKIE = "loginCookie"
+var USERS = map[string]*UserInfo{}  // Map of all users
+const LOGIN_COOKIE = "loginCookie"  // Cookie to keep users logged in
 
 func main(){
-    http.HandleFunc("/", welcomeRedirect)
-    http.HandleFunc("/welcome", welcome)
-    http.HandleFunc("/signup", signup)
-    http.HandleFunc("/login", login)
-    http.HandleFunc("/logout", logout)
-    http.HandleFunc("/home", home)
-    http.HandleFunc("/error", errorPage)
-    http.HandleFunc("/follow", follow)
-    http.HandleFunc("/unfollow", unfollow)
-    http.HandleFunc("/submit-post", submitPost)
+    http.HandleFunc("/", welcomeRedirect)   // function for server address page
+    http.HandleFunc("/welcome", welcome)    // function for welcome page (main page for not logged in users)
+    http.HandleFunc("/signup", signup)      // function for signup page
+    http.HandleFunc("/login", login)        // function for login page
+    http.HandleFunc("/logout", logout)      // function for logout page
+    http.HandleFunc("/home", home)          // function for home page (main page for logged in users)
+    http.HandleFunc("/error", errorPage)    // function for error page
 
-    http.HandleFunc("/signup-response", signupResponse)
-    http.HandleFunc("/login-response", loginResponse)
-    http.HandleFunc("/search-response", searchResponse)
+    http.HandleFunc("/follow", follow)                   // function for follow submission
+    http.HandleFunc("/unfollow", unfollow)               // function for unfollow submission
+    http.HandleFunc("/submit-post", submitPost)          // function for post submission
+    http.HandleFunc("/signup-response", signupResponse)  // function for signup submission
+    http.HandleFunc("/login-response", loginResponse)    // function for login submission
+    http.HandleFunc("/search-response", searchResponse)  // function for search submission
     http.ListenAndServe(":8080", nil)
 }
 
 
 func welcomeRedirect(w http.ResponseWriter, r *http.Request) {
-    http.Redirect(w, r, "/welcome", http.StatusSeeOther)
+    http.Redirect(w, r, "/welcome", http.StatusSeeOther)  // URL always displays welcome
 }
 
 func welcome(w http.ResponseWriter, r *http.Request) {
     exists, _ := getCookie(w, r)
     if exists {
-        http.Redirect(w, r, "/home", http.StatusSeeOther)
+        http.Redirect(w, r, "/home", http.StatusSeeOther)  // redirect to home if the user is already logged in
         return
     }
     http.ServeFile(w, r, "web/welcome.html")
