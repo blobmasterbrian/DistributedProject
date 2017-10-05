@@ -73,12 +73,18 @@ func home(w http.ResponseWriter, r *http.Request) {
         return
     }
     t, _ := template.ParseFiles("web/homepage.html")
-    t.Execute(w, cookie.Value)
+    t.Execute(w, struct{
+            Username string
+            Posts []Post
+        }{
+            cookie.Value,
+            USERS[cookie.Value].GetAllChirps(),
+        })
 }
 
 func errorPage(w http.ResponseWriter, r *http.Request) {
     t, _ := template.ParseFiles("web/error.html")
-    t.Execute(w, struct {Name string; Error string}{Name: "Dave", Error: "Singularity"})
+    t.Execute(w, struct{Username string; Error string}{Username: "Dave", Error: "Singularity"})
 }
 
 func follow(w http.ResponseWriter, r *http.Request) {
