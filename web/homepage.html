@@ -17,14 +17,14 @@
         Post:
         <br>
         <form action="http://127.0.0.1:8080/submit-post" method="post">
-            <textarea maxlength="100" rows="4" cols="50" name="post"></textarea>
+            <textarea maxlength="100" rows="4" cols="50" name="post"></textarea><br>
             <input type="submit" value="post">
         </form>
         <br>
         <a href="http://127.0.0.1:8080/logout">Log out</a>
         <br><br>
         {{range $post := .Posts}}
-        {{$post.Poster}} &ensp;&ensp; {{$post.Stamp}}<br>
+        {{$post.Poster}} &emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp; {{$post.Time}}<br>
         {{$post.Message}}<br>
         {{end}}
     </body>

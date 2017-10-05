@@ -7,10 +7,10 @@ import (
 
 
 type UserInfo struct {
-	Username string
-	password string
-	following map[string]*UserInfo
-    posts []Post
+	Username   string
+	password   string
+	following  map[string]*UserInfo
+    posts      []Post
 }
 
 func NewUserInfo(username, password string) *UserInfo {
@@ -22,10 +22,11 @@ func NewUserInfo(username, password string) *UserInfo {
 }
 
 type Post struct {
-    Stamp time.Time
-    Message string
-    Poster string
-    index int        //index of post in priority queue
+    Message  string
+    Poster   string
+    Time     string
+    stamp    time.Time
+    index    int  //index of post in priority queue
 }
 
 type PriorityQueue []*Post
@@ -33,7 +34,7 @@ type PriorityQueue []*Post
 func (q PriorityQueue) Len() int {return len(q)}
 
 func (q PriorityQueue) Less(i, j int) bool {
-    return q[j].Stamp.Before(q[i].Stamp)
+    return q[j].stamp.Before(q[i].stamp)
 }
 
 func (q PriorityQueue) Swap(i,j int) {
@@ -79,7 +80,7 @@ func (user *UserInfo) UnFollow(oldFollow *UserInfo) bool {
 }
 
 func (user *UserInfo) WritePost(msg string){
-    newPost := Post{Stamp: time.Now(), Message: msg, Poster: user.Username}
+    newPost := Post{Message: msg, Poster: user.Username, Time: time.RFC1123[0:len(time.RFC1123)-4], stamp: time.Now()}
     user.posts = append(user.posts, newPost)
 }
 
