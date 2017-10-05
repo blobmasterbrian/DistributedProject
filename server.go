@@ -9,21 +9,22 @@ import(
 )
 
 var USERS = map[string]*UserInfo{}
-const LOGINCOOKIE = "loginCookie"
+const LOGIN_COOKIE = "loginCookie"
 
 func main(){
     http.HandleFunc("/", welcomeRedirect)
     http.HandleFunc("/welcome", welcome)
     http.HandleFunc("/signup", signup)
     http.HandleFunc("/login", login)
-    //http.HandleFunc("/logout", logout)
-    http.HandleFunc("/home",home)
+    http.HandleFunc("/logout", logout)
+    http.HandleFunc("/home", home)
     http.HandleFunc("/error", errorPage)
-    http.HandleFunc("/follow",follow)
+    http.HandleFunc("/follow", follow)
+    http.HandleFunc("/unfollow", unfollow)
 
     http.HandleFunc("/signup-response", signupResponse)
     http.HandleFunc("/login-response", loginResponse)
-    http.HandleFunc("/search-response",searchResponse)
+    http.HandleFunc("/search-response", searchResponse)
     http.ListenAndServe(":8080", nil)
 }
 
@@ -59,9 +60,10 @@ func login(w http.ResponseWriter, r *http.Request) {
     http.ServeFile(w, r, "web/login.html")
 }
 
-//func logout(w http.ResponseWriter, r *http.Request) {
-//    http.SetCookie(w, nil)
-//}
+func logout(w http.ResponseWriter, r *http.Request) {
+    clearCookie(r)
+    http.Redirect(w, r, "/welcome", http.StatusSeeOther)
+}
 
 func home(w http.ResponseWriter, r *http.Request) {
     exists, cookie := getCookie(w, r)
@@ -169,7 +171,7 @@ func searchResponse(w http.ResponseWriter, r *http.Request) {
 }
 
 func getCookie(w http.ResponseWriter, r *http.Request) (LoggedIn bool, Cookie *http.Cookie) {
-    cookie, err := r.Cookie(LOGINCOOKIE)
+    cookie, err := r.Cookie(LOGIN_COOKIE)
     if err != nil {
         fmt.Println(err)
     }
@@ -181,15 +183,13 @@ func getCookie(w http.ResponseWriter, r *http.Request) (LoggedIn bool, Cookie *h
 
 func genCookie(username string) *http.Cookie {
     return &http.Cookie{
-        Name:     LOGINCOOKIE,
+        Name:     LOGIN_COOKIE,
         Value:    username,
         Expires:  time.Now().Add(24 * time.Hour),
     }
 }
 
-//func clearCookie(w http.ResponseWriter, cookieName string) {
-//    http.SetCookie(w, &http.Cookie{
-//        Name:     LOGINCOOKIE,
-//        Expires:  time.Now(),
-//    })
-//}
+func clearCookie(r *http.Request) {
+    cookie, _ := r.Cookie(LOGIN_COOKIE)
+    cookie.Expires = time.Now()
+}
