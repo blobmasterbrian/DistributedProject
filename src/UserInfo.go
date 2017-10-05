@@ -33,7 +33,7 @@ type PriorityQueue []*Post
 func (q PriorityQueue) Len() int {return len(q)}
 
 func (q PriorityQueue) Less(i, j int) bool {
-    return q[i].Stamp.Before(q[j].Stamp)
+    return q[j].Stamp.Before(q[i].Stamp)
 }
 
 func (q PriorityQueue) Swap(i,j int) {
@@ -54,7 +54,7 @@ func (q *PriorityQueue) Pop() interface{} {
     n := len(oldQ)
     removedPost := oldQ[n-1]
     removedPost.index = -1
-    *q = oldQ[0: n-1]
+    *q = oldQ[0 : n-1]
     return removedPost
 }
 
@@ -89,12 +89,13 @@ func (user *UserInfo) GetAllChirps() []Post {
     var allChirps PriorityQueue
     heap.Init(&allChirps)
     for _, followed := range user.following {
-        for _, singlePost := range followed.posts {
-            heap.Push(&allChirps, &singlePost)
+        for i, _ := range followed.posts {
+            heap.Push(&allChirps, &(followed.posts[i]))
         }
     }
     for allChirps.Len() > 0 {
-        result = append(result, *heap.Pop(&allChirps).(*Post))
+        x := *heap.Pop(&allChirps).(*Post)
+        result = append(result, x)
     }
     return result
 }
