@@ -62,7 +62,10 @@ func login(w http.ResponseWriter, r *http.Request) {
 }
 
 func logout(w http.ResponseWriter, r *http.Request) {
-    clearCookie(r)
+    cookie, _ := r.Cookie(LOGIN_COOKIE)
+    cookie.MaxAge = -1
+    cookie.Expires = time.Now().Add(-1 * time.Hour)
+    http.SetCookie(w, cookie)
     http.Redirect(w, r, "/welcome", http.StatusSeeOther)
 }
 
@@ -210,9 +213,4 @@ func genCookie(username string) *http.Cookie {
         Value:    username,
         Expires:  time.Now().Add(24 * time.Hour),
     }
-}
-
-func clearCookie(r *http.Request) {
-    cookie, _ := r.Cookie(LOGIN_COOKIE)
-    cookie.Expires = time.Now()
 }

@@ -80,7 +80,7 @@ func (user *UserInfo) UnFollow(oldFollow *UserInfo) bool {
 }
 
 func (user *UserInfo) WritePost(msg string){
-    newPost := Post{Message: msg, Poster: user.Username, Time: time.RFC1123[0:len(time.RFC1123)-4], stamp: time.Now()}
+    newPost := Post{Message: msg, Poster: user.Username, Time: time.Now().Format(time.RFC1123)[0:len(time.RFC1123)-4], stamp: time.Now()}
     user.posts = append(user.posts, newPost)
 }
 
