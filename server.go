@@ -26,6 +26,7 @@ func main(){
     http.HandleFunc("/signup-response", signupResponse)  // function for signup submission
     http.HandleFunc("/login-response", loginResponse)    // function for login submission
     http.HandleFunc("/search-response", searchResponse)  // function for search submission
+    http.HandleFunc("/delete-account", deleteAccount)    // function for account deletion submission
     http.ListenAndServe(":8080", nil)
 }
 
@@ -210,6 +211,19 @@ func searchResponse(w http.ResponseWriter, r *http.Request) {
             http.Redirect(w, r, "/home", http.StatusSeeOther)
         }
     }
+}
+
+func deleteAccount(w http.ResponseWriter, r *http.Request) {
+    cookie, _ := r.Cookie(LOGIN_COOKIE)
+    user := USERS[cookie.Value]
+    cookie.MaxAge = -1
+    cookie.Expires = time.Now().Add(-1 * time.Hour)
+    http.SetCookie(w, cookie)
+    databaseDelete(user)
+    http.Redirect(w, r, "/welcome", http.StatusSeeOther)
+}
+
+func databaseDelete(user *UserInfo) {
 }
 
 func getCookie(w http.ResponseWriter, r *http.Request) (LoggedIn bool, Cookie *http.Cookie) {
