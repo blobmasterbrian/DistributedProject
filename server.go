@@ -149,6 +149,10 @@ func submitPost(w http.ResponseWriter, r *http.Request) {
 }
 
 func signupResponse(w http.ResponseWriter, r *http.Request) {
+    w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+    w.Header().Set("Pragma", "no-cache")
+    w.Header().Set("Expires", "0")
+
     if r.Method == http.MethodPost {
         r.ParseForm()
         if (r.PostFormValue("password") != r.PostFormValue("confirm")) || USERS[r.PostFormValue("username")] != nil {
@@ -194,7 +198,14 @@ func searchResponse(w http.ResponseWriter, r *http.Request) {
         r.ParseForm()
         if USERS[r.FormValue("username")] != nil && r.FormValue("username") != cookie.Value {
             t, _ := template.ParseFiles("web/searchResult.html")
-            t.Execute(w, struct{Username string}{Username: r.FormValue("username")})
+            isFollowing := USERS[cookie.Value].IsFollowing(USERS[r.FormValue("username")])
+            var followStr string
+            if isFollowing {
+                followStr = "unfollow"
+            } else {
+                followStr = "follow"
+            }
+            t.Execute(w, struct{Username, Follow string}{Username: r.FormValue("username"), Follow: followStr})
         } else {
             http.Redirect(w, r, "/home", http.StatusSeeOther)
         }

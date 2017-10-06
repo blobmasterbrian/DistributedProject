@@ -75,8 +75,17 @@ func (user *UserInfo) UnFollow(oldFollow *UserInfo) bool {
     if oldFollow == nil || user.following[oldFollow.Username] == nil {
         return false
     }
-    user.following[oldFollow.Username] = nil
+    delete(user.following, oldFollow.Username)
     return true
+}
+
+func (user *UserInfo) IsFollowing(other *UserInfo) bool {
+    for i, _ := range user.following {
+        if user.following[i] == other {
+            return true
+        }
+    }
+    return false
 }
 
 func (user *UserInfo) WritePost(msg string){
