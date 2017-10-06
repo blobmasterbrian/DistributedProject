@@ -89,14 +89,16 @@ func (user *UserInfo) GetAllChirps() []Post {
 
     var allChirps PriorityQueue
     heap.Init(&allChirps)
+    for i, _ := range user.posts {
+        heap.Push(&allChirps, &(user.posts[i]))
+    }
     for _, followed := range user.following {
         for i, _ := range followed.posts {
             heap.Push(&allChirps, &(followed.posts[i]))
         }
     }
     for allChirps.Len() > 0 {
-        x := *heap.Pop(&allChirps).(*Post)
-        result = append(result, x)
+        result = append(result, *heap.Pop(&allChirps).(*Post))
     }
     return result
 }

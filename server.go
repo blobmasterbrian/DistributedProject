@@ -73,6 +73,9 @@ func logout(w http.ResponseWriter, r *http.Request) {
 }
 
 func home(w http.ResponseWriter, r *http.Request) {
+    w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+    w.Header().Set("Pragma", "no-cache")
+    w.Header().Set("Expires", "0")
     exists, cookie := getCookie(w, r)
     if !exists {
         http.Redirect(w, r, "/welcome", http.StatusSeeOther)
@@ -107,10 +110,6 @@ func follow(w http.ResponseWriter, r *http.Request) {
         if !USERS[cookie.Value].Follow(USERS[r.PostFormValue("username")]){
             http.Redirect(w,r, "/error", http.StatusSeeOther)
         } else {
-            x := USERS[cookie.Value].GetAllChirps()
-            for _,i := range x {
-                fmt.Println(i)
-            }
             http.Redirect(w,r,"/home", http.StatusSeeOther)
         }
     }
@@ -145,6 +144,7 @@ func submitPost(w http.ResponseWriter, r *http.Request) {
     if r.Method == http.MethodPost {
         r.ParseForm()
         USERS[cookie.Value].WritePost(r.PostFormValue("post"))
+        http.Redirect(w, r, "/home", http.StatusSeeOther)
     }
 }
 
@@ -185,16 +185,18 @@ func loginResponse(w http.ResponseWriter, r *http.Request) {
 }
 
 func searchResponse(w http.ResponseWriter, r *http.Request) {
-    exists, _ := getCookie(w, r)
+    exists, cookie := getCookie(w, r)
     if !exists {
         http.Redirect(w, r, "/welcome", http.StatusSeeOther)
         return
     }
     if r.Method == http.MethodGet{
         r.ParseForm()
-        if USERS[r.FormValue("username")] != nil {
+        if USERS[r.FormValue("username")] != nil && r.FormValue("username") != cookie.Value {
             t, _ := template.ParseFiles("web/searchResult.html")
-            t.Execute(w, struct{Username string; Link string}{Username: r.FormValue("username"), Link: "temp"})
+            t.Execute(w, struct{Username string}{Username: r.FormValue("username")})
+        } else {
+            http.Redirect(w, r, "/home", http.StatusSeeOther)
         }
     }
 }
