@@ -31,6 +31,8 @@ type Post struct {
 
 type PriorityQueue []*Post
 
+//below functions required for implementing a heap interface, used in getting all follower's
+//posts in order
 func (q PriorityQueue) Len() int {return len(q)}
 
 func (q PriorityQueue) Less(i, j int) bool {
@@ -93,6 +95,8 @@ func (user *UserInfo) WritePost(msg string){
     user.posts = append(user.posts, newPost)
 }
 
+//creates a priority queue implemented with a heap to pull all of the posts and return a slice with
+//the posts in order. includes the current user's posts
 func (user *UserInfo) GetAllChirps() []Post {
     var result = []Post{}
 

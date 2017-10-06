@@ -82,7 +82,10 @@ func home(w http.ResponseWriter, r *http.Request) {
         http.Redirect(w, r, "/welcome", http.StatusSeeOther)
         return
     }
-    t, _ := template.ParseFiles("web/homepage.html")
+    t, err := template.ParseFiles("web/homepage.html")
+    if err != nil {
+        fmt.Println(err)
+    }
     t.Execute(w, struct{
             Username string
             Posts []Post
@@ -93,10 +96,15 @@ func home(w http.ResponseWriter, r *http.Request) {
 }
 
 func errorPage(w http.ResponseWriter, r *http.Request) {
-    t, _ := template.ParseFiles("web/error.html")
+    t, err := template.ParseFiles("web/error.html")
+    if err != nil {
+        fmt.Println(err)
+    }
     t.Execute(w, struct{Username string; Error string}{Username: "Dave", Error: "Singularity"})
 }
 
+//the current user (determined by the cookie) will add a new user to their followed list
+//based on form value, if follow fails redirect to the error pagae
 func follow(w http.ResponseWriter, r *http.Request) {
     exists, cookie := getCookie(w, r)
     if !exists {
@@ -116,6 +124,7 @@ func follow(w http.ResponseWriter, r *http.Request) {
     }
 }
 
+//reverse logic of follow
 func unfollow(w http.ResponseWriter, r *http.Request){
     exists, cookie := getCookie(w, r)
     if !exists {
@@ -136,6 +145,7 @@ func unfollow(w http.ResponseWriter, r *http.Request){
 
 }
 
+//reads a post from form input, then appends it to the slice of posts per user
 func submitPost(w http.ResponseWriter, r *http.Request) {
     exists, cookie := getCookie(w,r)
     if !exists || USERS[cookie.Value] == nil{
@@ -149,6 +159,7 @@ func submitPost(w http.ResponseWriter, r *http.Request) {
     }
 }
 
+//creates a new user if the provided username is not already taken
 func signupResponse(w http.ResponseWriter, r *http.Request) {
     w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
     w.Header().Set("Pragma", "no-cache")
@@ -157,7 +168,7 @@ func signupResponse(w http.ResponseWriter, r *http.Request) {
     if r.Method == http.MethodPost {
         r.ParseForm()
         if (r.PostFormValue("password") != r.PostFormValue("confirm")) || USERS[r.PostFormValue("username")] != nil {
-            http.Redirect(w, r, "/error", http.StatusSeeOther)
+            http.Redirect(w, r, "/signup", http.StatusSeeOther)
             return
         }
         USERS[r.PostFormValue("username")] = NewUserInfo(r.PostFormValue("username"), r.PostFormValue("password"))
@@ -184,11 +195,13 @@ func loginResponse(w http.ResponseWriter, r *http.Request) {
                 r.PostFormValue("password"))
         } else {
             fmt.Println(USERS[r.PostFormValue("username")])
-            http.Redirect(w,r,"/error",http.StatusSeeOther)
+            http.Redirect(w,r,"/login",http.StatusSeeOther)
         }
     }
 }
 
+//searches for a user, provides user info if the user did not search for him/herself
+//provides a link to follow/unfollow based on current follow status
 func searchResponse(w http.ResponseWriter, r *http.Request) {
     exists, cookie := getCookie(w, r)
     if !exists {
@@ -217,7 +230,9 @@ func deleteAccount(w http.ResponseWriter, r *http.Request) {
     cookie, _ := r.Cookie(LOGIN_COOKIE)
     user := USERS[cookie.Value]
     for i := range USERS {
-        USERS[i].UnFollow(user)
+        if USERS[i] != nil && user != nil{
+            USERS[i].UnFollow(user)
+        }
     }
     USERS[cookie.Value] = nil
     cookie.MaxAge = -1
@@ -227,10 +242,8 @@ func deleteAccount(w http.ResponseWriter, r *http.Request) {
 }
 
 func getCookie(w http.ResponseWriter, r *http.Request) (LoggedIn bool, Cookie *http.Cookie) {
-    cookie, err := r.Cookie(LOGIN_COOKIE)
-    if err != nil {
-        fmt.Println(err)
-    }
+    //ignoring error value because it is likely that the cookie might not exist here
+    cookie, _ := r.Cookie(LOGIN_COOKIE)
     if cookie == nil {
         return false, nil
     }
