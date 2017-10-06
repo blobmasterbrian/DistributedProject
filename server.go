@@ -216,14 +216,14 @@ func searchResponse(w http.ResponseWriter, r *http.Request) {
 func deleteAccount(w http.ResponseWriter, r *http.Request) {
     cookie, _ := r.Cookie(LOGIN_COOKIE)
     user := USERS[cookie.Value]
+    for i := range USERS {
+        USERS[i].UnFollow(user)
+    }
+    USERS[cookie.Value] = nil
     cookie.MaxAge = -1
     cookie.Expires = time.Now().Add(-1 * time.Hour)
     http.SetCookie(w, cookie)
-    databaseDelete(user)
     http.Redirect(w, r, "/welcome", http.StatusSeeOther)
-}
-
-func databaseDelete(user *UserInfo) {
 }
 
 func getCookie(w http.ResponseWriter, r *http.Request) (LoggedIn bool, Cookie *http.Cookie) {

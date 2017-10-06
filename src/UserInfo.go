@@ -80,7 +80,7 @@ func (user *UserInfo) UnFollow(oldFollow *UserInfo) bool {
 }
 
 func (user *UserInfo) IsFollowing(other *UserInfo) bool {
-    for i, _ := range user.following {
+    for i := range user.following {
         if user.following[i] == other {
             return true
         }
@@ -102,8 +102,10 @@ func (user *UserInfo) GetAllChirps() []Post {
         heap.Push(&allChirps, &(user.posts[i]))
     }
     for _, followed := range user.following {
-        for i := range followed.posts {
-            heap.Push(&allChirps, &(followed.posts[i]))
+        if followed != nil {
+            for i := range followed.posts {
+                heap.Push(&allChirps, &(followed.posts[i]))
+            }
         }
     }
     for allChirps.Len() > 0 {
