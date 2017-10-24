@@ -4,7 +4,7 @@ import(
     "html/template"
     "fmt"
     "net/http"
-    . "../DistributedProject/src"
+    . "../../lib"
     "time"
 )
 
