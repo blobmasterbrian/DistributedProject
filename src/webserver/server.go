@@ -8,6 +8,7 @@ import(
     "time"
 )
 
+//needs to move
 var USERS = map[string]*UserInfo{}  // Map of all users
 const LOGIN_COOKIE = "loginCookie"  // Cookie to keep users logged in
 
@@ -90,6 +91,7 @@ func home(w http.ResponseWriter, r *http.Request) {
             Posts []Post
         }{
             cookie.Value,
+            //needs to move
             USERS[cookie.Value].GetAllChirps(),
         })
 }
@@ -114,9 +116,11 @@ func follow(w http.ResponseWriter, r *http.Request) {
     }
     if r.Method == http.MethodPost {
         r.ParseForm()
+        //needs to move
         if USERS[cookie.Value] == nil {
             return
         }
+        //needs to move
         if !USERS[cookie.Value].Follow(USERS[r.PostFormValue("username")]) {
             http.Redirect(w,r, "/error", http.StatusSeeOther)
         } else {
@@ -135,9 +139,11 @@ func unfollow(w http.ResponseWriter, r *http.Request) {
     }
     if r.Method == http.MethodPost {
         r.ParseForm()
+        //needs to move
         if USERS[cookie.Value] == nil {
             return
         }
+        //needs to move
         if !USERS[cookie.Value].UnFollow(USERS[r.PostFormValue("username")]) {
             http.Redirect(w, r, "/error", http.StatusSeeOther)
         } else {
@@ -151,12 +157,14 @@ func unfollow(w http.ResponseWriter, r *http.Request) {
 func submitPost(w http.ResponseWriter, r *http.Request) {
     clearCache(w)
     exists, cookie := getCookie(r)
+    //needs to move
     if !exists || USERS[cookie.Value] == nil {
         http.Redirect(w, r, "/welcome", http.StatusSeeOther)
         return
     }
     if r.Method == http.MethodPost {
         r.ParseForm()
+        //needs to move
         USERS[cookie.Value].WritePost(r.PostFormValue("post"))
         http.Redirect(w, r, "/home", http.StatusSeeOther)
     }
@@ -167,10 +175,12 @@ func signupResponse(w http.ResponseWriter, r *http.Request) {
     clearCache(w)
     if r.Method == http.MethodPost {
         r.ParseForm()
+        //needs to change
         if (r.PostFormValue("password") != r.PostFormValue("confirm")) || USERS[r.PostFormValue("username")] != nil {
             http.Redirect(w, r, "/signup", http.StatusSeeOther)
             return
         }
+        //needs to move
         USERS[r.PostFormValue("username")] = NewUserInfo(r.PostFormValue("username"), r.PostFormValue("password"))
 
         http.SetCookie(w, genCookie(r.PostFormValue("username")))
@@ -186,7 +196,7 @@ func loginResponse(w http.ResponseWriter, r *http.Request) {
     clearCache(w)
     if r.Method == http.MethodPost {
         r.ParseForm()
-
+        //needs to change
         if USERS[r.PostFormValue("username")] != nil &&
             USERS[r.PostFormValue("username")].CheckPass(r.PostFormValue("password")) {
 
@@ -212,6 +222,7 @@ func searchResponse(w http.ResponseWriter, r *http.Request) {
     }
     if r.Method == http.MethodGet{
         r.ParseForm()
+        //needs to change
         if USERS[r.FormValue("username")] != nil && r.FormValue("username") != cookie.Value {
             t, _ := template.ParseFiles("web/searchResult.html")
             isFollowing := USERS[cookie.Value].IsFollowing(USERS[r.FormValue("username")])
@@ -231,6 +242,7 @@ func searchResponse(w http.ResponseWriter, r *http.Request) {
 func deleteAccount(w http.ResponseWriter, r *http.Request) {
     clearCache(w)
     cookie, _ := r.Cookie(LOGIN_COOKIE)
+    //needs to change
     user := USERS[cookie.Value]
     for i := range USERS {
         if USERS[i] != nil && user != nil {
