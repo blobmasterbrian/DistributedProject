@@ -56,9 +56,9 @@ func loadUsers() {
                 continue
             }
             defer file.Close()
-            dec := gob.NewDecoder(file)
+            decoder := gob.NewDecoder(file)
             var uInfo UserInfo
-            err = dec.Decode(&uInfo)
+            err = decoder.Decode(&uInfo)
             if err != nil {
                 fmt.Println("error decoding, ", err)
                 panic(err)
@@ -69,6 +69,8 @@ func loadUsers() {
 }
 
 func runCommand(command string, conn net.Conn){
+    decoder := gob.NewDecoder(conn)
+    response := gob.NewEncoder(conn)
     switch command {
         case "getChrips": //username
 
@@ -81,7 +83,11 @@ func runCommand(command string, conn net.Conn){
         case "post":      //username, post
 
         case "signup":   //username, password
-
+            var signup struct{username, password string}
+            decoder.Decode(&signup)
+            if _, err := os.Stat("../../data/"+signup.username); os.IsNotexist(err) {
+                conn.Write()
+            }
         case "login":    //username, password
 
         case "search":   //username
