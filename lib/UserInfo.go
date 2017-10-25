@@ -22,7 +22,7 @@ func NewUserInfo(username, password string) *UserInfo {
 }
 
 type Post struct {
-    Poster string
+    Poster   string
     Message  string
     Time     string
     Stamp    time.Time
