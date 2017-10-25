@@ -2,7 +2,7 @@ package main
 
 import (
     . "../../lib"
-    "bufio"
+    "encoding/binary"
     "encoding/gob"
     "fmt"
     "io/ioutil"
@@ -26,12 +26,12 @@ func main(){
             fmt.Println("error accepting connection ", err)
         }
         defer conn.Close()
-        bufReader := bufio.NewReader(conn)
-        command, err := bufReader.ReadBytes('\n')
+        var command int
+        err = binary.Read(conn, binary.LittleEndian, &command)
         if err != nil {
-            fmt.Println("error reading command string ", command)
+            fmt.Println("error reading command ", err)
         }
-        runCommand(string(command), conn)
+        runCommand(command, conn)
     }
 }
 
@@ -68,29 +68,31 @@ func loadUsers() {
     }
 }
 
-func runCommand(command string, conn net.Conn){
+func runCommand(command int, conn net.Conn){
     decoder := gob.NewDecoder(conn)
-    response := gob.NewEncoder(conn)
+    //response := gob.NewEncoder(conn)
     switch command {
-        case "getChrips": //username
+        case GetChirps: //username
 
-        case "follow":    //username1, username2
+        case Follow:    //username1, username2
 
-        case "unfollow":  //username1, username2
+        case Unfollow:  //username1, username2
 
-        case "deleteAccount": //username
+        case DeleteAccount: //username
 
-        case "post":      //username, post
+        case Chirp:      //username, post
 
-        case "signup":   //username, password
-            var signup struct{username, password string}
+        case Signup:   //username, password
+            var signup struct{Username, Password string}
             decoder.Decode(&signup)
-            if _, err := os.Stat("../../data/"+signup.username); os.IsNotexist(err) {
-                conn.Write()
+            if _, err := os.Stat("../../data/"+signup.Username); !os.IsNotExist(err) {
+                binary.Write(conn, binary.LittleEndian, false)
+                return
             }
-        case "login":    //username, password
+            binary.Write(conn, binary.LittleEndian, true)
+        case Login:    //username, password
 
-        case "search":   //username
+        case Search:   //username
 
         default:
             fmt.Println("Invalid command ", command, ", ignoring.")
