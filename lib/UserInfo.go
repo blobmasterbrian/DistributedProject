@@ -8,9 +8,9 @@ import (
 
 type UserInfo struct {
 	Username   string
-	password   string
-	following  map[string]*UserInfo
-    posts      []Post
+	Password   string
+	Following  map[string]*UserInfo
+    Posts      []Post
 }
 
 func NewUserInfo(username, password string) *UserInfo {
@@ -25,8 +25,8 @@ type Post struct {
     Message  string
     Poster   string
     Time     string
-    stamp    time.Time
-    index    int  //index of post in priority queue
+    Stamp    time.Time
+    Index    int  //index of post in priority queue
 }
 
 type PriorityQueue []*Post

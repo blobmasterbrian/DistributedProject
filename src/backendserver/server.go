@@ -30,6 +30,7 @@ func main(){
     }
 }
 
+func loadUsers(
 
 func runCommand(command string, conn net.Conn){
     switch command {
