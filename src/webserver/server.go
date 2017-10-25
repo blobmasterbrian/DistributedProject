@@ -86,7 +86,7 @@ func home(w http.ResponseWriter, r *http.Request) {
     if err != nil {
         fmt.Println(err)
     }
-    t.Execute(w, struct{
+    t.Execute(w, struct {
             Username string
             Posts []Post
         }{
