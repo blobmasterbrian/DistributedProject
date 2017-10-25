@@ -16,8 +16,8 @@ type UserInfo struct {
 func NewUserInfo(username, password string) *UserInfo {
     newUser := new(UserInfo)
     newUser.Username = username
-    newUser.password = password
-    newUser.following = make(map[string]*UserInfo)
+    newUser.Password = password
+    newUser.Following = make(map[string]*UserInfo)
     return newUser
 }
 
@@ -36,19 +36,19 @@ type PriorityQueue []*Post
 func (q PriorityQueue) Len() int {return len(q)}
 
 func (q PriorityQueue) Less(i, j int) bool {
-    return q[j].stamp.Before(q[i].stamp)
+    return q[j].Stamp.Before(q[i].Stamp)
 }
 
 func (q PriorityQueue) Swap(i,j int) {
     q[i], q[j] = q[j], q[i]
-    q[i].index = i
-    q[j].index = j
+    q[i].Index = i
+    q[j].Index = j
 }
 
 func (q *PriorityQueue) Push(x interface{}){
     newLen := len(*q)
     newPost := x.(*Post)
-    newPost.index = newLen
+    newPost.Index = newLen
     *q = append(*q, newPost)
 }
 
@@ -56,34 +56,34 @@ func (q *PriorityQueue) Pop() interface{} {
     oldQ := *q
     n := len(oldQ)
     removedPost := oldQ[n-1]
-    removedPost.index = -1
+    removedPost.Index = -1
     *q = oldQ[0 : n-1]
     return removedPost
 }
 
 func (u *UserInfo) CheckPass(password string) bool {
-    return u.password == password
+    return u.Password == password
 }
 
 func (user *UserInfo) Follow(newFollow *UserInfo) bool {
-    if newFollow == nil || user.following[newFollow.Username] != nil {
+    if newFollow == nil || user.Following[newFollow.Username] != nil {
         return false
     }
-    user.following[newFollow.Username] = newFollow
+    user.Following[newFollow.Username] = newFollow
     return true
 }
 
 func (user *UserInfo) UnFollow(oldFollow *UserInfo) bool {
-    if oldFollow == nil || user.following[oldFollow.Username] == nil {
+    if oldFollow == nil || user.Following[oldFollow.Username] == nil {
         return false
     }
-    delete(user.following, oldFollow.Username)
+    delete(user.Following, oldFollow.Username)
     return true
 }
 
 func (user *UserInfo) IsFollowing(other *UserInfo) bool {
-    for i := range user.following {
-        if user.following[i] == other {
+    for i := range user.Following {
+        if user.Following[i] == other {
             return true
         }
     }
@@ -91,8 +91,8 @@ func (user *UserInfo) IsFollowing(other *UserInfo) bool {
 }
 
 func (user *UserInfo) WritePost(msg string){
-    newPost := Post{Poster: user.Username, Message: msg, Time: time.Now().Format(time.RFC1123)[0:len(time.RFC1123)-4], stamp: time.Now()}
-    user.posts = append(user.posts, newPost)
+    newPost := Post{Poster: user.Username, Message: msg, Time: time.Now().Format(time.RFC1123)[0:len(time.RFC1123)-4], Stamp: time.Now()}
+    user.Posts = append(user.Posts, newPost)
 }
 
 //creates a priority queue implemented with a heap to pull all of the posts and return a slice with
@@ -102,13 +102,13 @@ func (user *UserInfo) GetAllChirps() []Post {
 
     var allChirps PriorityQueue
     heap.Init(&allChirps)
-    for i := range user.posts {
-        heap.Push(&allChirps, &(user.posts[i]))
+    for i := range user.Posts {
+        heap.Push(&allChirps, &(user.Posts[i]))
     }
-    for _, followed := range user.following {
+    for _, followed := range user.Following {
         if followed != nil {
-            for i := range followed.posts {
-                heap.Push(&allChirps, &(followed.posts[i]))
+            for i := range followed.Posts {
+                heap.Push(&allChirps, &(followed.Posts[i]))
             }
         }
     }
