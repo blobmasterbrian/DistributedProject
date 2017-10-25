@@ -22,8 +22,8 @@ func NewUserInfo(username, password string) *UserInfo {
 }
 
 type Post struct {
+    Poster string
     Message  string
-    Poster   string
     Time     string
     Stamp    time.Time
     Index    int  //index of post in priority queue
@@ -91,7 +91,7 @@ func (user *UserInfo) IsFollowing(other *UserInfo) bool {
 }
 
 func (user *UserInfo) WritePost(msg string){
-    newPost := Post{Message: msg, Poster: user.Username, Time: time.Now().Format(time.RFC1123)[0:len(time.RFC1123)-4], stamp: time.Now()}
+    newPost := Post{Poster: user.Username, Message: msg, Time: time.Now().Format(time.RFC1123)[0:len(time.RFC1123)-4], stamp: time.Now()}
     user.posts = append(user.posts, newPost)
 }
 
