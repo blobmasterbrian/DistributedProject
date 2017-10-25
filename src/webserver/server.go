@@ -36,10 +36,8 @@ func welcomeRedirect(w http.ResponseWriter, r *http.Request) {
 }
 
 func welcome(w http.ResponseWriter, r *http.Request) {
-    w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
-    w.Header().Set("Pragma", "no-cache")
-    w.Header().Set("Expires", "0")
-    exists, _ := getCookie(w, r)
+    clearCache(w)
+    exists, _ := getCookie(r)
     if exists {
         http.Redirect(w, r, "/home", http.StatusSeeOther)  // redirect to home if the user is already logged in
         return
@@ -48,7 +46,8 @@ func welcome(w http.ResponseWriter, r *http.Request) {
 }
 
 func signup(w http.ResponseWriter, r *http.Request) {
-    exists, _ := getCookie(w, r)
+    clearCache(w)
+    exists, _ := getCookie(r)
     if exists {
         http.Redirect(w, r, "/home", http.StatusSeeOther)
         return
@@ -57,7 +56,8 @@ func signup(w http.ResponseWriter, r *http.Request) {
 }
 
 func login(w http.ResponseWriter, r *http.Request) {
-    exists, _ := getCookie(w, r)
+    clearCache(w)
+    exists, _ := getCookie(r)
     if exists {
         http.Redirect(w, r, "/home", http.StatusSeeOther)
         return
@@ -66,6 +66,7 @@ func login(w http.ResponseWriter, r *http.Request) {
 }
 
 func logout(w http.ResponseWriter, r *http.Request) {
+    clearCache(w)
     cookie, _ := r.Cookie(LOGIN_COOKIE)
     cookie.MaxAge = -1
     cookie.Expires = time.Now().Add(-1 * time.Hour)
@@ -74,10 +75,8 @@ func logout(w http.ResponseWriter, r *http.Request) {
 }
 
 func home(w http.ResponseWriter, r *http.Request) {
-    w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
-    w.Header().Set("Pragma", "no-cache")
-    w.Header().Set("Expires", "0")
-    exists, cookie := getCookie(w, r)
+    clearCache(w)
+    exists, cookie := getCookie(r)
     if !exists {
         http.Redirect(w, r, "/welcome", http.StatusSeeOther)
         return
@@ -96,6 +95,7 @@ func home(w http.ResponseWriter, r *http.Request) {
 }
 
 func errorPage(w http.ResponseWriter, r *http.Request) {
+    clearCache(w)
     t, err := template.ParseFiles("web/error.html")
     if err != nil {
         fmt.Println(err)
@@ -103,30 +103,11 @@ func errorPage(w http.ResponseWriter, r *http.Request) {
     t.Execute(w, struct{Username string; Error string}{Username: "Dave", Error: "Singularity"})
 }
 
-//the current user (determined by the cookie) will add a new user to their followed list
-//based on form value, if follow fails redirect to the error pagae
+// the current user (determined by the cookie) will add a new user to their followed list
+// based on form value, if follow fails redirect to the error page
 func follow(w http.ResponseWriter, r *http.Request) {
-    exists, cookie := getCookie(w, r)
-    if !exists {
-        http.Redirect(w, r, "/welcome", http.StatusSeeOther)
-        return
-    }
-    if r.Method == http.MethodPost{
-        r.ParseForm()
-        if USERS[cookie.Value] == nil {
-            return
-        }
-        if !USERS[cookie.Value].Follow(USERS[r.PostFormValue("username")]){
-            http.Redirect(w,r, "/error", http.StatusSeeOther)
-        } else {
-            http.Redirect(w,r,"/home", http.StatusSeeOther)
-        }
-    }
-}
-
-//reverse logic of follow
-func unfollow(w http.ResponseWriter, r *http.Request){
-    exists, cookie := getCookie(w, r)
+    clearCache(w)
+    exists, cookie := getCookie(r)
     if !exists {
         http.Redirect(w, r, "/welcome", http.StatusSeeOther)
         return
@@ -136,7 +117,28 @@ func unfollow(w http.ResponseWriter, r *http.Request){
         if USERS[cookie.Value] == nil {
             return
         }
-        if !USERS[cookie.Value].UnFollow(USERS[r.PostFormValue("username")]){
+        if !USERS[cookie.Value].Follow(USERS[r.PostFormValue("username")]) {
+            http.Redirect(w,r, "/error", http.StatusSeeOther)
+        } else {
+            http.Redirect(w,r,"/home", http.StatusSeeOther)
+        }
+    }
+}
+
+// reverse logic of follow
+func unfollow(w http.ResponseWriter, r *http.Request) {
+    clearCache(w)
+    exists, cookie := getCookie(r)
+    if !exists {
+        http.Redirect(w, r, "/welcome", http.StatusSeeOther)
+        return
+    }
+    if r.Method == http.MethodPost {
+        r.ParseForm()
+        if USERS[cookie.Value] == nil {
+            return
+        }
+        if !USERS[cookie.Value].UnFollow(USERS[r.PostFormValue("username")]) {
             http.Redirect(w, r, "/error", http.StatusSeeOther)
         } else {
             http.Redirect(w, r, "/home", http.StatusSeeOther)
@@ -145,10 +147,11 @@ func unfollow(w http.ResponseWriter, r *http.Request){
 
 }
 
-//reads a post from form input, then appends it to the slice of posts per user
+// reads a post from form input, then appends it to the slice of posts per user
 func submitPost(w http.ResponseWriter, r *http.Request) {
-    exists, cookie := getCookie(w,r)
-    if !exists || USERS[cookie.Value] == nil{
+    clearCache(w)
+    exists, cookie := getCookie(r)
+    if !exists || USERS[cookie.Value] == nil {
         http.Redirect(w, r, "/welcome", http.StatusSeeOther)
         return
     }
@@ -159,12 +162,9 @@ func submitPost(w http.ResponseWriter, r *http.Request) {
     }
 }
 
-//creates a new user if the provided username is not already taken
+// creates a new user if the provided username is not already taken
 func signupResponse(w http.ResponseWriter, r *http.Request) {
-    w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
-    w.Header().Set("Pragma", "no-cache")
-    w.Header().Set("Expires", "0")
-
+    clearCache(w)
     if r.Method == http.MethodPost {
         r.ParseForm()
         if (r.PostFormValue("password") != r.PostFormValue("confirm")) || USERS[r.PostFormValue("username")] != nil {
@@ -183,6 +183,7 @@ func signupResponse(w http.ResponseWriter, r *http.Request) {
 }
 
 func loginResponse(w http.ResponseWriter, r *http.Request) {
+    clearCache(w)
     if r.Method == http.MethodPost {
         r.ParseForm()
 
@@ -200,10 +201,11 @@ func loginResponse(w http.ResponseWriter, r *http.Request) {
     }
 }
 
-//searches for a user, provides user info if the user did not search for him/herself
-//provides a link to follow/unfollow based on current follow status
+// searches for a user, provides user info if the user did not search for him/herself
+// provides a link to follow/unfollow based on current follow status
 func searchResponse(w http.ResponseWriter, r *http.Request) {
-    exists, cookie := getCookie(w, r)
+    clearCache(w)
+    exists, cookie := getCookie(r)
     if !exists {
         http.Redirect(w, r, "/welcome", http.StatusSeeOther)
         return
@@ -227,10 +229,11 @@ func searchResponse(w http.ResponseWriter, r *http.Request) {
 }
 
 func deleteAccount(w http.ResponseWriter, r *http.Request) {
+    clearCache(w)
     cookie, _ := r.Cookie(LOGIN_COOKIE)
     user := USERS[cookie.Value]
     for i := range USERS {
-        if USERS[i] != nil && user != nil{
+        if USERS[i] != nil && user != nil {
             USERS[i].UnFollow(user)
         }
     }
@@ -241,8 +244,8 @@ func deleteAccount(w http.ResponseWriter, r *http.Request) {
     http.Redirect(w, r, "/welcome", http.StatusSeeOther)
 }
 
-func getCookie(w http.ResponseWriter, r *http.Request) (LoggedIn bool, Cookie *http.Cookie) {
-    //ignoring error value because it is likely that the cookie might not exist here
+func getCookie(r *http.Request) (LoggedIn bool, Cookie *http.Cookie) {
+    // ignoring error value because it is likely that the cookie might not exist here
     cookie, _ := r.Cookie(LOGIN_COOKIE)
     if cookie == nil {
         return false, nil
@@ -256,4 +259,10 @@ func genCookie(username string) *http.Cookie {
         Value:    username,
         Expires:  time.Now().Add(24 * time.Hour),
     }
+}
+
+func clearCache(w http.ResponseWriter) {
+    w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+    w.Header().Set("Pragma", "no-cache")
+    w.Header().Set("Expires", "0")
 }
