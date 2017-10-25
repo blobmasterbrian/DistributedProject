@@ -3,9 +3,11 @@ package main
 import (
     . "../../lib"
     "bufio"
+    "encoding/gob"
     "fmt"
     "io/ioutil"
     "net"
+    "os"
 )
 
 var USERS = map[string]*UserInfo{}      // Map of all users
