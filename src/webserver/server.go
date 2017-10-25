@@ -4,12 +4,9 @@ import(
     "html/template"
     "fmt"
     "net/http"
-    . "../../lib"
     "time"
 )
 
-//needs to move
-var USERS = map[string]*UserInfo{}  // Map of all users
 const LOGIN_COOKIE = "loginCookie"  // Cookie to keep users logged in
 
 func main(){
