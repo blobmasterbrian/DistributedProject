@@ -25,13 +25,13 @@ func main(){
         if err != nil {
             fmt.Println("error accepting connection ", err)
         }
-        defer conn.Close()
         var command int
         err = binary.Read(conn, binary.LittleEndian, &command)
         if err != nil {
             fmt.Println("error reading command ", err)
         }
         runCommand(command, conn)
+        conn.Close()
     }
 }
 
@@ -55,7 +55,6 @@ func loadUsers() {
                 fmt.Println("Unable to open file: ", user.Name(),", skipping. ",err)
                 continue
             }
-            defer file.Close()
             decoder := gob.NewDecoder(file)
             var uInfo UserInfo
             err = decoder.Decode(&uInfo)
@@ -64,6 +63,7 @@ func loadUsers() {
                 panic(err)
             }
             USERS[uInfo.Username] = &uInfo
+            file.Close()
         }
     }
 }
@@ -85,7 +85,7 @@ func runCommand(command int, conn net.Conn){
         case Signup:   //username, password
             var signup struct{Username, Password string}
             decoder.Decode(&signup)
-            if _, err := os.Stat("../../data/"+signup.Username); !os.IsNotExist(err) {
+            if _, err := os.Stat("../../data/" + signup.Username); !os.IsNotExist(err) {
                 binary.Write(conn, binary.LittleEndian, false)
                 return
             }
