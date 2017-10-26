@@ -61,7 +61,7 @@ func home(w http.ResponseWriter, r *http.Request) {
     }
     defer conn.Close()
 
-    binary.Write(conn, binary.LittleEndian, GetChirps)
+    binary.Write(conn, binary.LittleEndian, CommandGetChirps)
     encoder := gob.NewEncoder(conn)
     encoder.Encode(cookie.Value)
 
@@ -106,7 +106,7 @@ func signup(w http.ResponseWriter, r *http.Request) {
             return
         }
 
-        binary.Write(conn, binary.LittleEndian, Signup)
+        binary.Write(conn, binary.LittleEndian, CommandSignup)
         encoder := gob.NewEncoder(conn)
         encoder.Encode(struct{
             Username string
@@ -121,7 +121,7 @@ func signup(w http.ResponseWriter, r *http.Request) {
         err = binary.Read(conn, binary.LittleEndian, &success)
         if err != nil {
             fmt.Println("error reading from port 5000", err)
-            http.Redirect(w,r, "/error", http.StatusSeeOther)
+            http.Redirect(w, r, "/error", http.StatusSeeOther)
             return
         }
 
@@ -158,7 +158,7 @@ func login(w http.ResponseWriter, r *http.Request) {
         defer conn.Close()
 
         r.ParseForm()
-        binary.Write(conn, binary.LittleEndian, Login)
+        binary.Write(conn, binary.LittleEndian, CommandLogin)
         encoder := gob.NewEncoder(conn)
         encoder.Encode(struct{
             Username string
@@ -172,7 +172,7 @@ func login(w http.ResponseWriter, r *http.Request) {
         err = binary.Read(conn, binary.LittleEndian, &success)
         if err != nil {
             fmt.Println("error reading from port 5000", err)
-            http.Redirect(w,r, "/error", http.StatusSeeOther)
+            http.Redirect(w, r, "/error", http.StatusSeeOther)
             return
         }
 
@@ -221,13 +221,13 @@ func follow(w http.ResponseWriter, r *http.Request) {
         conn, err := net.Dial("tcp","127.0.0.1:5000")
         if err != nil {
             fmt.Println("error connecting to port 5000", err)
-            http.Redirect(w,r, "/error", http.StatusSeeOther)
+            http.Redirect(w, r, "/error", http.StatusSeeOther)
             return
         }
         defer conn.Close()
 
         r.ParseForm()
-        binary.Write(conn, binary.LittleEndian, Follow)
+        binary.Write(conn, binary.LittleEndian, CommandFollow)
         encoder := gob.NewEncoder(conn)
         encoder.Encode(struct {
             Username1 string
@@ -266,13 +266,13 @@ func unfollow(w http.ResponseWriter, r *http.Request) {
         conn, err := net.Dial("tcp","127.0.0.1:5000")
         if err != nil {
             fmt.Println("error connecting to port 5000", err)
-            http.Redirect(w,r, "/error", http.StatusSeeOther)
+            http.Redirect(w, r, "/error", http.StatusSeeOther)
             return
         }
         defer conn.Close()
 
         r.ParseForm()
-        binary.Write(conn, binary.LittleEndian, Unfollow)
+        binary.Write(conn, binary.LittleEndian, CommandUnfollow)
         encoder := gob.NewEncoder(conn)
         encoder.Encode(struct {
             Username1 string
@@ -286,7 +286,7 @@ func unfollow(w http.ResponseWriter, r *http.Request) {
         err = binary.Read(conn, binary.LittleEndian, &success)
         if err != nil {
             fmt.Println("error reading from port 5000", err)
-            http.Redirect(w,r, "/error", http.StatusSeeOther)
+            http.Redirect(w, r, "/error", http.StatusSeeOther)
             return
         }
 
@@ -312,13 +312,13 @@ func submitPost(w http.ResponseWriter, r *http.Request) {
         conn, err := net.Dial("tcp","127.0.0.1:5000")
         if err != nil {
             fmt.Println("error connecting to port 5000", err)
-            http.Redirect(w,r, "/error", http.StatusSeeOther)
+            http.Redirect(w, r, "/error", http.StatusSeeOther)
             return
         }
         defer conn.Close()
 
         r.ParseForm()
-        binary.Write(conn, binary.LittleEndian, Chirp)
+        binary.Write(conn, binary.LittleEndian, CommandChirp)
         encoder := gob.NewEncoder(conn)
         encoder.Encode(struct{
             Username string
@@ -363,7 +363,7 @@ func searchResponse(w http.ResponseWriter, r *http.Request) {
         defer conn.Close()
 
         r.ParseForm()
-        binary.Write(conn, binary.LittleEndian, Search)
+        binary.Write(conn, binary.LittleEndian, CommandSearch)
         var follow struct{Searcher, Target string}
         follow.Searcher = cookie.Value
         follow.Target = r.FormValue("username")
@@ -399,7 +399,7 @@ func deleteAccount(w http.ResponseWriter, r *http.Request) {
     }
     defer conn.Close()
 
-    binary.Write(conn, binary.LittleEndian, DeleteAccount)
+    binary.Write(conn, binary.LittleEndian, CommandDeleteAccount)
     encoder := gob.NewEncoder(conn)
     encoder.Encode(struct{Username string}{cookie.Value})
 

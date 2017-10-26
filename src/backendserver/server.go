@@ -73,21 +73,21 @@ func runCommand(command int32, conn net.Conn){
     decoder := gob.NewDecoder(conn)
     response := gob.NewEncoder(conn)
     switch command {
-        case Signup:
+        case CommandSignup:
             binary.Write(conn, binary.LittleEndian, signup(decoder))
-        case DeleteAccount:
+        case CommandDeleteAccount:
 
-        case Login:
+        case CommandLogin:
             binary.Write(conn, binary.LittleEndian, login(decoder))
-        case Follow:
+        case CommandFollow:
             binary.Write(conn, binary.LittleEndian, follow(decoder))
-        case Unfollow:
+        case CommandUnfollow:
             binary.Write(conn, binary.LittleEndian, unfollow(decoder))
-        case Search:
+        case CommandSearch:
             search(decoder, response)
-        case Chirp:
+        case CommandChirp:
             binary.Write(conn, binary.LittleEndian, chirp(decoder))
-        case GetChirps:
+        case CommandGetChirps:
             getChrips(decoder, response)
         default:
             fmt.Println("Invalid command ", command, ", ignoring.")
