@@ -25,8 +25,6 @@ func main(){
     http.HandleFunc("/follow", follow)                   // function for follow submission
     http.HandleFunc("/unfollow", unfollow)               // function for unfollow submission
     http.HandleFunc("/submit-post", submitPost)          // function for post submission
-    http.HandleFunc("/signup-response", signupResponse)  // function for signup submission
-    http.HandleFunc("/login-response", loginResponse)    // function for login submission
     http.HandleFunc("/search-response", searchResponse)  // function for search submission
     http.HandleFunc("/delete-account", deleteAccount)    // function for account deletion submission
     http.ListenAndServe(":8080", nil)
@@ -47,6 +45,43 @@ func welcome(w http.ResponseWriter, r *http.Request) {
     http.ServeFile(w, r, "../../web/welcome.html")
 }
 
+func home(w http.ResponseWriter, r *http.Request) {
+    clearCache(w)
+    exists, cookie := getCookie(r)
+    if !exists {
+        http.Redirect(w, r, "/welcome", http.StatusSeeOther)
+        return
+    }
+
+    conn, err := net.Dial("tcp","127.0.0.1:5000")
+    if err != nil {
+        fmt.Println("error connecting to port 5000", err)
+        http.Redirect(w,r, "/error", http.StatusSeeOther)
+        return
+    }
+    defer conn.Close()
+
+    binary.Write(conn, binary.LittleEndian, GetChirps)
+    encoder := gob.NewEncoder(conn)
+    encoder.Encode(cookie.Value)
+
+    decoder := gob.NewDecoder(conn)
+    var posts []Post
+    decoder.Decode(&posts)
+
+    t, err := template.ParseFiles("../../web/homepage.html")
+    if err != nil {
+        fmt.Println(err)
+    }
+    t.Execute(w, struct {
+        Username string
+        Posts []Post
+    }{
+        cookie.Value,
+        posts,
+    })
+}
+
 func signup(w http.ResponseWriter, r *http.Request) {
     clearCache(w)
     exists, _ := getCookie(r)
@@ -54,13 +89,9 @@ func signup(w http.ResponseWriter, r *http.Request) {
         http.Redirect(w, r, "/home", http.StatusSeeOther)
         return
     }
-    http.ServeFile(w, r, "../../web/signup.html")
-}
-
-// creates a new user if the provided username is not already taken
-func signupResponse(w http.ResponseWriter, r *http.Request) {
-    clearCache(w)
-    if r.Method == http.MethodPost {
+    if r.Method == http.MethodGet {
+        http.ServeFile(w, r, "../../web/signup.html")
+    } else if r.Method == http.MethodPost {
         conn, err := net.Dial("tcp","127.0.0.1:5000")
         if err != nil {
             fmt.Println("error connecting to port 5000", err)
@@ -115,12 +146,9 @@ func login(w http.ResponseWriter, r *http.Request) {
         http.Redirect(w, r, "/home", http.StatusSeeOther)
         return
     }
-    http.ServeFile(w, r, "../../web/login.html")
-}
-
-func loginResponse(w http.ResponseWriter, r *http.Request) {
-    clearCache(w)
-    if r.Method == http.MethodPost {
+    if r.Method == http.MethodGet {
+        http.ServeFile(w, r, "../../web/login.html")
+    } else if r.Method == http.MethodPost {
         conn, err := net.Dial("tcp","127.0.0.1:5000")
         if err != nil {
             fmt.Println("error connecting to port 5000", err)
@@ -140,16 +168,15 @@ func loginResponse(w http.ResponseWriter, r *http.Request) {
             r.PostFormValue("password"),
         })
 
-        tmp := true
-        success := &tmp
-        err = binary.Read(conn, binary.LittleEndian, success)
+        var success bool
+        err = binary.Read(conn, binary.LittleEndian, &success)
         if err != nil {
             fmt.Println("error reading from port 5000", err)
             http.Redirect(w,r, "/error", http.StatusSeeOther)
             return
         }
 
-        if !(*success) {
+        if !success {
             http.Redirect(w, r, "/login", http.StatusSeeOther)
             return
         }
@@ -169,43 +196,6 @@ func logout(w http.ResponseWriter, r *http.Request) {
     cookie.Expires = time.Now().Add(-1 * time.Hour)
     http.SetCookie(w, cookie)
     http.Redirect(w, r, "/welcome", http.StatusSeeOther)
-}
-
-func home(w http.ResponseWriter, r *http.Request) {
-    clearCache(w)
-    exists, cookie := getCookie(r)
-    if !exists {
-        http.Redirect(w, r, "/welcome", http.StatusSeeOther)
-        return
-    }
-
-    conn, err := net.Dial("tcp","127.0.0.1:5000")
-    if err != nil {
-        fmt.Println("error connecting to port 5000", err)
-        http.Redirect(w,r, "/error", http.StatusSeeOther)
-        return
-    }
-    defer conn.Close()
-
-    binary.Write(conn, binary.LittleEndian, GetChirps)
-    encoder := gob.NewEncoder(conn)
-    encoder.Encode(cookie.Value)
-    
-    decoder := gob.NewDecoder(conn)
-    var posts []Post
-    decoder.Decode(&posts)
-
-    t, err := template.ParseFiles("../../web/homepage.html")
-    if err != nil {
-        fmt.Println(err)
-    }
-    t.Execute(w, struct {
-        Username string
-        Posts []Post
-    }{
-        cookie.Value,
-        posts,
-    })
 }
 
 func errorPage(w http.ResponseWriter, r *http.Request) {
