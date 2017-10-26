@@ -84,7 +84,7 @@ func runCommand(command int32, conn net.Conn){
         case Unfollow:
 
         case Search:
-
+            binary.Write(conn, binary.LittleEndian, search(decoder))
         case Chirp:
             binary.Write(conn, binary.LittleEndian, chirp(decoder))
         case GetChirps:
@@ -162,6 +162,19 @@ func chirp(decoder *gob.Decoder) bool {
         return false
     }
     user.WritePost(NewPost)
+
+    file, err := os.Create("../../data/" + user.Username)
+    if err != nil {
+        fmt.Println("unable to create file ", err)
+        return false
+    }
+    defer file.Close()
+    encoder := gob.NewEncoder(file)
+    err = encoder.Encode(user)
+    if err != nil {
+        fmt.Println("Unable to encode user ", err)
+        return false
+    }
     return true
 }
 
