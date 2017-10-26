@@ -84,7 +84,7 @@ func runCommand(command int32, conn net.Conn){
         case Unfollow:
 
         case Search:
-            //binary.Write(conn, binary.LittleEndian, search(decoder))
+            binary.Write(conn, binary.LittleEndian, search(decoder))
         case Chirp:
             binary.Write(conn, binary.LittleEndian, chirp(decoder))
         case GetChirps:
@@ -148,6 +148,18 @@ func login(decoder *gob.Decoder) bool {
         fmt.Println("Password ", user.Password, " did not match ", userAndPass.Password)
     }
     return ok && user.Password == userAndPass.Password
+}
+
+func search(decoder *gob.Decoder) bool {
+    var users struct{Searcher, Target string}
+    err := decoder.Decode(&users)
+    if err != nil {
+        fmt.Println("unable to decode users ", err)
+        return false
+    }
+    _, ok := USERS[users.Searcher]
+    _, ok2 := USERS[users.Target]
+    return ok && ok2
 }
 
 func chirp(decoder *gob.Decoder) bool {
