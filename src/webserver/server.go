@@ -1,8 +1,12 @@
 package main
 
 import(
-    "html/template"
+    . "../../lib"
+    "encoding/binary"
+    "encoding/gob"
     "fmt"
+    "html/template"
+    "net"
     "net/http"
     "time"
 )
@@ -53,6 +57,57 @@ func signup(w http.ResponseWriter, r *http.Request) {
     http.ServeFile(w, r, "web/signup.html")
 }
 
+// creates a new user if the provided username is not already taken
+func signupResponse(w http.ResponseWriter, r *http.Request) {
+    clearCache(w)
+    if r.Method == http.MethodPost {
+        conn, err := net.Dial("tcp","127.0.0.1:5000")
+        if err != nil {
+            fmt.Println("error connecting to port 5000", err)
+            http.Redirect(w,r, "/error", http.StatusSeeOther)
+            return
+        }
+        defer conn.Close()
+
+        r.ParseForm()
+        if r.PostFormValue("password") != r.PostFormValue("confirm") {
+            http.Redirect(w, r, "/signup", http.StatusSeeOther)
+            return
+        }
+
+        binary.Write(conn, binary.LittleEndian, Signup)
+        encoder := gob.NewEncoder(conn)
+        encoder.Encode(struct{
+            Username string
+            Password string
+        }{
+            r.PostFormValue("username"),
+            r.PostFormValue("password"),
+        })
+
+        // NOTE: expecting backend to return false if username is taken
+        var success bool
+        err = binary.Read(conn, binary.LittleEndian, &success)
+        if err != nil {
+            fmt.Println("error reading from port 5000", err)
+            http.Redirect(w,r, "/error", http.StatusSeeOther)
+            return
+        }
+
+        if !success {
+            http.Redirect(w, r, "/signup", http.StatusSeeOther)
+            return
+        }
+
+        http.SetCookie(w, genCookie(r.PostFormValue("username")))
+        http.Redirect(w, r, "/home", http.StatusSeeOther)
+        fmt.Printf("Username: %s, Password: %s, Confirmed Pass: %s\n",
+            r.PostFormValue("username"),
+            r.PostFormValue("password"),
+            r.PostFormValue("confirm"))
+    }
+}
+
 func login(w http.ResponseWriter, r *http.Request) {
     clearCache(w)
     exists, _ := getCookie(r)
@@ -61,6 +116,49 @@ func login(w http.ResponseWriter, r *http.Request) {
         return
     }
     http.ServeFile(w, r, "web/login.html")
+}
+
+func loginResponse(w http.ResponseWriter, r *http.Request) {
+    clearCache(w)
+    if r.Method == http.MethodPost {
+        conn, err := net.Dial("tcp","127.0.0.1:5000")
+        if err != nil {
+            fmt.Println("error connecting to port 5000", err)
+            http.Redirect(w,r, "/error", http.StatusSeeOther)
+            return
+        }
+        defer conn.Close()
+
+        r.ParseForm()
+        binary.Write(conn, binary.LittleEndian, Login)
+        encoder := gob.NewEncoder(conn)
+        encoder.Encode(struct{
+            Username string
+            Password string
+        }{
+            r.PostFormValue("username"),
+            r.PostFormValue("password"),
+        })
+
+        var success bool
+        err = binary.Read(conn, binary.LittleEndian, &success)
+        if err != nil {
+            fmt.Println("error reading from port 5000", err)
+            http.Redirect(w,r, "/error", http.StatusSeeOther)
+            return
+        }
+
+        if !success {
+            http.Redirect(w, r, "/login", http.StatusSeeOther)
+            return
+        }
+
+        http.SetCookie(w, genCookie(r.PostFormValue("username")))
+        http.Redirect(w, r, "/home", http.StatusSeeOther)
+        fmt.Printf("Username: %s, Password: %s\n",
+            r.PostFormValue("username"),
+            r.PostFormValue("password"))
+    }
 }
 
 func logout(w http.ResponseWriter, r *http.Request) {
@@ -79,18 +177,31 @@ func home(w http.ResponseWriter, r *http.Request) {
         http.Redirect(w, r, "/welcome", http.StatusSeeOther)
         return
     }
+
+    conn, err := net.Dial("tcp","127.0.0.1:5000")
+    if err != nil {
+        fmt.Println("error connecting to port 5000", err)
+        http.Redirect(w,r, "/error", http.StatusSeeOther)
+        return
+    }
+    defer conn.Close()
+
+    binary.Write(conn, binary.LittleEndian, GetChirps)
+    decoder := gob.NewDecoder(conn)
+    var posts []Post
+    decoder.Decode(&posts)
+
     t, err := template.ParseFiles("web/homepage.html")
     if err != nil {
         fmt.Println(err)
     }
     t.Execute(w, struct {
-            Username string
-            Posts []Post
-        }{
-            cookie.Value,
-            //needs to move
-            USERS[cookie.Value].GetAllChirps(),
-        })
+        Username string
+        Posts []Post
+    }{
+        cookie.Value,
+        posts,
+    })
 }
 
 func errorPage(w http.ResponseWriter, r *http.Request) {
@@ -111,17 +222,39 @@ func follow(w http.ResponseWriter, r *http.Request) {
         http.Redirect(w, r, "/welcome", http.StatusSeeOther)
         return
     }
+
     if r.Method == http.MethodPost {
-        r.ParseForm()
-        //needs to move
-        if USERS[cookie.Value] == nil {
+        conn, err := net.Dial("tcp","127.0.0.1:5000")
+        if err != nil {
+            fmt.Println("error connecting to port 5000", err)
+            http.Redirect(w,r, "/error", http.StatusSeeOther)
             return
         }
-        //needs to move
-        if !USERS[cookie.Value].Follow(USERS[r.PostFormValue("username")]) {
+        defer conn.Close()
+
+        r.ParseForm()
+        binary.Write(conn, binary.LittleEndian, Follow)
+        encoder := gob.NewEncoder(conn)
+        encoder.Encode(struct {
+            Username1 string
+            Username2 string
+        }{
+            cookie.Value,
+            r.PostFormValue("username"),
+        })
+
+        var success bool
+        err = binary.Read(conn, binary.LittleEndian, &success)
+        if err != nil {
+            fmt.Println("error reading from port 5000", err)
             http.Redirect(w,r, "/error", http.StatusSeeOther)
+            return
+        }
+
+        if success {
+            http.Redirect(w, r, "/home", http.StatusSeeOther)
         } else {
-            http.Redirect(w,r,"/home", http.StatusSeeOther)
+            http.Redirect(w, r, "/error", http.StatusSeeOther)
         }
     }
 }
@@ -134,17 +267,39 @@ func unfollow(w http.ResponseWriter, r *http.Request) {
         http.Redirect(w, r, "/welcome", http.StatusSeeOther)
         return
     }
+
     if r.Method == http.MethodPost {
-        r.ParseForm()
-        //needs to move
-        if USERS[cookie.Value] == nil {
+        conn, err := net.Dial("tcp","127.0.0.1:5000")
+        if err != nil {
+            fmt.Println("error connecting to port 5000", err)
+            http.Redirect(w,r, "/error", http.StatusSeeOther)
             return
         }
-        //needs to move
-        if !USERS[cookie.Value].UnFollow(USERS[r.PostFormValue("username")]) {
-            http.Redirect(w, r, "/error", http.StatusSeeOther)
-        } else {
+        defer conn.Close()
+
+        r.ParseForm()
+        binary.Write(conn, binary.LittleEndian, Unfollow)
+        encoder := gob.NewEncoder(conn)
+        encoder.Encode(struct {
+            Username1 string
+            Username2 string
+        }{
+            cookie.Value,
+            r.PostFormValue("username"),
+        })
+
+        var success bool
+        err = binary.Read(conn, binary.LittleEndian, &success)
+        if err != nil {
+            fmt.Println("error reading from port 5000", err)
+            http.Redirect(w,r, "/error", http.StatusSeeOther)
+            return
+        }
+
+        if success {
             http.Redirect(w, r, "/home", http.StatusSeeOther)
+        } else {
+            http.Redirect(w, r, "/error", http.StatusSeeOther)
         }
     }
 
@@ -154,56 +309,51 @@ func unfollow(w http.ResponseWriter, r *http.Request) {
 func submitPost(w http.ResponseWriter, r *http.Request) {
     clearCache(w)
     exists, cookie := getCookie(r)
-    //needs to move
-    if !exists || USERS[cookie.Value] == nil {
+
+    conn, err := net.Dial("tcp","127.0.0.1:5000")
+    if err != nil {
+        fmt.Println("error connecting to port 5000", err)
+        http.Redirect(w,r, "/error", http.StatusSeeOther)
+        return
+    }
+    defer conn.Close()
+
+    if !exists {  // modify (also include if there is a cookie that no username is associated with
         http.Redirect(w, r, "/welcome", http.StatusSeeOther)
         return
     }
     if r.Method == http.MethodPost {
-        r.ParseForm()
-        //needs to move
-        USERS[cookie.Value].WritePost(r.PostFormValue("post"))
-        http.Redirect(w, r, "/home", http.StatusSeeOther)
-    }
-}
-
-// creates a new user if the provided username is not already taken
-func signupResponse(w http.ResponseWriter, r *http.Request) {
-    clearCache(w)
-    if r.Method == http.MethodPost {
-        r.ParseForm()
-        //needs to change
-        if (r.PostFormValue("password") != r.PostFormValue("confirm")) || USERS[r.PostFormValue("username")] != nil {
-            http.Redirect(w, r, "/signup", http.StatusSeeOther)
+        conn, err := net.Dial("tcp","127.0.0.1:5000")
+        if err != nil {
+            fmt.Println("error connecting to port 5000", err)
+            http.Redirect(w,r, "/error", http.StatusSeeOther)
             return
         }
-        //needs to move
-        USERS[r.PostFormValue("username")] = NewUserInfo(r.PostFormValue("username"), r.PostFormValue("password"))
+        defer conn.Close()
 
-        http.SetCookie(w, genCookie(r.PostFormValue("username")))
-        http.Redirect(w, r, "/home", http.StatusSeeOther)
-        fmt.Printf("Username: %s, Password: %s, Confirmed Pass: %s\n",
-            USERS[r.PostFormValue("username")].Username,
-            r.PostFormValue("password"),
-            r.PostFormValue("confirm"))
-    }
-}
-
-func loginResponse(w http.ResponseWriter, r *http.Request) {
-    clearCache(w)
-    if r.Method == http.MethodPost {
         r.ParseForm()
-        //needs to change
-        if USERS[r.PostFormValue("username")] != nil &&
-            USERS[r.PostFormValue("username")].CheckPass(r.PostFormValue("password")) {
+        binary.Write(conn, binary.LittleEndian, Chirp)
+        encoder := gob.NewEncoder(conn)
+        encoder.Encode(struct{
+            Username string
+            Post string
+        }{
+            cookie.Value,
+            r.PostFormValue("post"),
+        })
 
-            http.SetCookie(w, genCookie(r.PostFormValue("username")))
+        var success bool
+        err = binary.Read(conn, binary.LittleEndian, &success)
+        if err != nil {
+            fmt.Println("error reading from port 5000", err)
+            http.Redirect(w,r, "/error", http.StatusSeeOther)
+            return
+        }
+
+        if success {
             http.Redirect(w, r, "/home", http.StatusSeeOther)
-            fmt.Printf("Username: %s, Password: %s\n", r.PostFormValue("username"),
-                r.PostFormValue("password"))
         } else {
-            fmt.Println(USERS[r.PostFormValue("username")])
-            http.Redirect(w,r,"/login",http.StatusSeeOther)
+            http.Redirect(w, r, "/error", http.StatusSeeOther)
         }
     }
 }
@@ -218,35 +368,49 @@ func searchResponse(w http.ResponseWriter, r *http.Request) {
         return
     }
     if r.Method == http.MethodGet{
+        conn, err := net.Dial("tcp","127.0.0.1:5000")
+        if err != nil {
+            fmt.Println("error connecting to port 5000", err)
+            http.Redirect(w,r, "/error", http.StatusSeeOther)
+            return
+        }
+        defer conn.Close()
+
         r.ParseForm()
-        //needs to change
-        if USERS[r.FormValue("username")] != nil && r.FormValue("username") != cookie.Value {
+        binary.Write(conn, binary.LittleEndian, Search)
+        encoder := gob.NewEncoder(conn)
+        encoder.Encode(struct{Username string}{r.FormValue("username")})
+
+        var user struct{Follow string}
+        decoder := gob.NewDecoder(conn)
+        decoder.Decode(&user)
+
+        if r.FormValue("username") != cookie.Value {  // backend function call
             t, _ := template.ParseFiles("web/searchResult.html")
-            isFollowing := USERS[cookie.Value].IsFollowing(USERS[r.FormValue("username")])
-            var followStr string
-            if isFollowing {
-                followStr = "unfollow"
-            } else {
-                followStr = "follow"
-            }
-            t.Execute(w, struct{Username, Follow string}{Username: r.FormValue("username"), Follow: followStr})
+            t.Execute(w, struct{Username, Follow string}{r.FormValue("username"), user.Follow})
         } else {
             http.Redirect(w, r, "/home", http.StatusSeeOther)
         }
     }
 }
 
+// change deletion to not store nil values
 func deleteAccount(w http.ResponseWriter, r *http.Request) {
     clearCache(w)
     cookie, _ := r.Cookie(LOGIN_COOKIE)
-    //needs to change
-    user := USERS[cookie.Value]
-    for i := range USERS {
-        if USERS[i] != nil && user != nil {
-            USERS[i].UnFollow(user)
-        }
+
+    conn, err := net.Dial("tcp","127.0.0.1:5000")
+    if err != nil {
+        fmt.Println("error connecting to port 5000", err)
+        http.Redirect(w,r, "/error", http.StatusSeeOther)
+        return
     }
-    USERS[cookie.Value] = nil
+    defer conn.Close()
+
+    binary.Write(conn, binary.LittleEndian, DeleteAccount)
+    encoder := gob.NewEncoder(conn)
+    encoder.Encode(struct{Username string}{cookie.Value})
+
     cookie.MaxAge = -1
     cookie.Expires = time.Now().Add(-1 * time.Hour)
     http.SetCookie(w, cookie)
