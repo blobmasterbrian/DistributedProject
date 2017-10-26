@@ -50,7 +50,7 @@ func loadUsers() {
     }
     for _, user := range users {
         if !user.IsDir() {
-            file, err := os.Open("../../data/"+ user.Name())
+            file, err := os.Open("../../data/" + user.Name())
             if err != nil {
                 fmt.Println("Unable to open file: ", user.Name(),", skipping. ",err)
                 continue
@@ -83,18 +83,62 @@ func runCommand(command int, conn net.Conn){
         case Chirp:      //username, post
 
         case Signup:   //username, password
-            var signup struct{Username, Password string}
-            decoder.Decode(&signup)
-            if _, err := os.Stat("../../data/" + signup.Username); !os.IsNotExist(err) {
-                binary.Write(conn, binary.LittleEndian, false)
-                return
-            }
-            binary.Write(conn, binary.LittleEndian, true)
+            binary.Write(conn, binary.LittleEndian, signup(decoder))
         case Login:    //username, password
-
+            binary.Write(conn, binary.LittleEndian, login(decoder))
         case Search:   //username
 
         default:
             fmt.Println("Invalid command ", command, ", ignoring.")
     }
+}
+
+/*
+    signup takes in a decoder as an argument with an expected decode resulting in a 
+    username password combo.
+    signup returns true or false representing wether a user was created sucessfully
+
+    signup then tries to create a file ../../data/*username* and encode a new UserInfo
+    object into the file.
+    if this is successful, the new UserInfo object is added to the USERS map 
+*/
+func signup(decoder *gob.Decoder) bool {
+    var userAndPass struct{Username, Password string}
+    err := decoder.Decode(&userAndPass)
+    if err != nil {
+        fmt.Println("error decoding ", err)
+        return false
+    }
+
+    if _, err := os.Stat("../../data/" + userAndPass.Username); !os.IsNotExist(err) {
+        return false
+    }
+
+    file, err := os.Create("../../data/" + userAndPass.Username)
+    if err != nil {
+        fmt.Println("unable to create file ", err)
+        return false
+    }
+    defer file.Close()
+
+    encoder := gob.NewEncoder(file)
+    newUser :=  NewUserInfo(userAndPass.Username, userAndPass.Password)
+    err = encoder.Encode(newUser)
+    if err != nil {
+        fmt.Println("error encoding new user ", err)
+        return false
+    }
+    USERS[newUser.Username] = newUser
+    return true
+}
+
+func login(decoder *gob.Decoder) bool {
+    var userAndPass struct{Username, Password string}
+    err := decoder.Decode(&userAndPass)
+    if err != nil {
+        fmt.Println("error decoding ", err)
+        return false
+    }
+    user, ok := USERS[userAndPass.Username]
+    return ok && user.Password == userAndPass.Password
 }
