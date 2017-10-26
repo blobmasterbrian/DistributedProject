@@ -80,11 +80,11 @@ func runCommand(command int32, conn net.Conn){
         case Login:
             binary.Write(conn, binary.LittleEndian, login(decoder))
         case Follow:
-
+            binary.Write(conn, binary.LittleEndian, follow(decoder))
         case Unfollow:
-
+            binary.Write(conn, binary.LittleEndian, unfollow(decoder))
         case Search:
-            binary.Write(conn, binary.LittleEndian, search(decoder))
+            search(decoder, response)
         case Chirp:
             binary.Write(conn, binary.LittleEndian, chirp(decoder))
         case GetChirps:
@@ -150,16 +150,63 @@ func login(decoder *gob.Decoder) bool {
     return ok && user.Password == userAndPass.Password
 }
 
-func search(decoder *gob.Decoder) bool {
-    var users struct{Searcher, Target string}
+func follow(decoder *gob.Decoder) bool {
+    var users struct{Username1, Username2 string}
     err := decoder.Decode(&users)
     if err != nil {
-        fmt.Println("unable to decode users ", err)
+        fmt.Println("failed to decode users ", err)
         return false
     }
-    _, ok := USERS[users.Searcher]
-    _, ok2 := USERS[users.Target]
-    return ok && ok2
+    user, ok := USERS[users.Username1]
+    user2, ok2 := USERS[users.Username2]
+    if !ok || !ok2 {
+        fmt.Println("User does not exist")
+        return false
+    }
+    return user.Follow(user2)
+}
+
+func unfollow(decoder *gob.Decoder) bool {
+    var users struct{Username1, Username2 string}
+    err := decoder.Decode(&users)
+    if err != nil {
+        fmt.Println("failed to decode users ", err)
+        return false
+    }
+    user, ok := USERS[users.Username1]
+    user2, ok2 := USERS[users.Username2]
+    if !ok || !ok2 {
+        fmt.Println("User does not exist")
+        return false
+    }
+    return user.UnFollow(user2)
+
+}
+
+func search(decoder *gob.Decoder, response *gob.Encoder) {
+    var username struct{Searcher, Target string}
+    err := decoder.Decode(&username)
+    result := "none"
+    if err != nil {
+        fmt.Println("unable to decode users ", err)
+        result = "none"
+    } else {
+        user1, ok := USERS[username.Searcher]
+        user2, ok2 := USERS[username.Target]
+        if !ok || !ok2{
+            result = "none"
+        } else{
+            if user1.IsFollowing(user2) {
+                result = "unfollow"
+            } else {
+                result =  "follow"
+            }
+        }
+    }
+    err = response.Encode(result)
+    if err != nil {
+        fmt.Println("failed to send response info")
+    }
 }
 
 func chirp(decoder *gob.Decoder) bool {

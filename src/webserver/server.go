@@ -364,16 +364,22 @@ func searchResponse(w http.ResponseWriter, r *http.Request) {
 
         r.ParseForm()
         binary.Write(conn, binary.LittleEndian, Search)
+        var follow struct{Searcher, Target string}
+        follow.Searcher = cookie.Value
+        follow.Target = r.FormValue("username")
         encoder := gob.NewEncoder(conn)
-        encoder.Encode(struct{Username string}{r.FormValue("username")})
+        encoder.Encode(follow)
 
-        var user struct{Follow string}
+        var isFollow string
         decoder := gob.NewDecoder(conn)
-        decoder.Decode(&user)
-
+        decoder.Decode(&isFollow)
+        if isFollow == "none" {
+            http.Redirect(w, r, "/home", http.StatusSeeOther)
+            return
+        }
         if r.FormValue("username") != cookie.Value {  // backend function call
             t, _ := template.ParseFiles("../../web/searchResult.html")
-            t.Execute(w, struct{Username, Follow string}{r.FormValue("username"), user.Follow})
+            t.Execute(w, struct{Username, Follow string}{r.FormValue("username"), isFollow})
         } else {
             http.Redirect(w, r, "/home", http.StatusSeeOther)
         }
