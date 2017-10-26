@@ -84,7 +84,7 @@ func runCommand(command int32, conn net.Conn){
         case Unfollow:
 
         case Search:
-            binary.Write(conn, binary.LittleEndian, search(decoder))
+            //binary.Write(conn, binary.LittleEndian, search(decoder))
         case Chirp:
             binary.Write(conn, binary.LittleEndian, chirp(decoder))
         case GetChirps:
@@ -161,7 +161,7 @@ func chirp(decoder *gob.Decoder) bool {
     if !ok {
         return false
     }
-    user.WritePost(NewPost)
+    user.WritePost(postInfo.NewPost)
 
     file, err := os.Create("../../data/" + user.Username)
     if err != nil {
@@ -185,10 +185,10 @@ func getChrips(decoder *gob.Decoder, response *gob.Encoder) {
         fmt.Println("Unable to decode username ", err)
         return
     }
-    var result []Post{}
+    var result = []Post{}
     user, ok := USERS[username]
     if ok {
-        result = USERS[username].GetAllChirps()
+        result = user.GetAllChirps()
     }
     err = response.Encode(result)
     if err != nil {
