@@ -25,10 +25,11 @@ func main(){
         if err != nil {
             fmt.Println("error accepting connection ", err)
         }
-        var command int
+        var command int32
         err = binary.Read(conn, binary.LittleEndian, &command)
         if err != nil {
             fmt.Println("error reading command ", err)
+            continue
         }
         runCommand(command, conn)
         conn.Close()
@@ -68,7 +69,7 @@ func loadUsers() {
     }
 }
 
-func runCommand(command int, conn net.Conn){
+func runCommand(command int32, conn net.Conn){
     decoder := gob.NewDecoder(conn)
     //response := gob.NewEncoder(conn)
     switch command {
@@ -140,5 +141,11 @@ func login(decoder *gob.Decoder) bool {
         return false
     }
     user, ok := USERS[userAndPass.Username]
+    if !ok {
+        fmt.Println("Could not find ", userAndPass.Username, " in map")
+    }
+    if user.Password != userAndPass.Password {
+        fmt.Println("Password ", user.Password, " did not match ", userAndPass.Password)
+    }
     return ok && user.Password == userAndPass.Password
 }

@@ -1,7 +1,7 @@
 package lib
 
 const (
-	Signup = iota
+	Signup int32 = iota
 	DeleteAccount
 	Login
 	Follow

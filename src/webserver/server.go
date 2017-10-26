@@ -44,7 +44,7 @@ func welcome(w http.ResponseWriter, r *http.Request) {
         http.Redirect(w, r, "/home", http.StatusSeeOther)  // redirect to home if the user is already logged in
         return
     }
-    http.ServeFile(w, r, "web/welcome.html")
+    http.ServeFile(w, r, "../../web/welcome.html")
 }
 
 func signup(w http.ResponseWriter, r *http.Request) {
@@ -54,7 +54,7 @@ func signup(w http.ResponseWriter, r *http.Request) {
         http.Redirect(w, r, "/home", http.StatusSeeOther)
         return
     }
-    http.ServeFile(w, r, "web/signup.html")
+    http.ServeFile(w, r, "../../web/signup.html")
 }
 
 // creates a new user if the provided username is not already taken
@@ -115,7 +115,7 @@ func login(w http.ResponseWriter, r *http.Request) {
         http.Redirect(w, r, "/home", http.StatusSeeOther)
         return
     }
-    http.ServeFile(w, r, "web/login.html")
+    http.ServeFile(w, r, "../../web/login.html")
 }
 
 func loginResponse(w http.ResponseWriter, r *http.Request) {
@@ -140,15 +140,16 @@ func loginResponse(w http.ResponseWriter, r *http.Request) {
             r.PostFormValue("password"),
         })
 
-        var success bool
-        err = binary.Read(conn, binary.LittleEndian, &success)
+        tmp := true
+        success := &tmp
+        err = binary.Read(conn, binary.LittleEndian, success)
         if err != nil {
             fmt.Println("error reading from port 5000", err)
             http.Redirect(w,r, "/error", http.StatusSeeOther)
             return
         }
 
-        if !success {
+        if !(*success) {
             http.Redirect(w, r, "/login", http.StatusSeeOther)
             return
         }
@@ -191,7 +192,7 @@ func home(w http.ResponseWriter, r *http.Request) {
     var posts []Post
     decoder.Decode(&posts)
 
-    t, err := template.ParseFiles("web/homepage.html")
+    t, err := template.ParseFiles("../../web/homepage.html")
     if err != nil {
         fmt.Println(err)
     }
@@ -206,7 +207,7 @@ func home(w http.ResponseWriter, r *http.Request) {
 
 func errorPage(w http.ResponseWriter, r *http.Request) {
     clearCache(w)
-    t, err := template.ParseFiles("web/error.html")
+    t, err := template.ParseFiles("../../web/error.html")
     if err != nil {
         fmt.Println(err)
     }
@@ -386,7 +387,7 @@ func searchResponse(w http.ResponseWriter, r *http.Request) {
         decoder.Decode(&user)
 
         if r.FormValue("username") != cookie.Value {  // backend function call
-            t, _ := template.ParseFiles("web/searchResult.html")
+            t, _ := template.ParseFiles("../../web/searchResult.html")
             t.Execute(w, struct{Username, Follow string}{r.FormValue("username"), user.Follow})
         } else {
             http.Redirect(w, r, "/home", http.StatusSeeOther)
