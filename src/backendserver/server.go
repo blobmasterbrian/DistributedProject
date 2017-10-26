@@ -71,24 +71,24 @@ func loadUsers() {
 
 func runCommand(command int32, conn net.Conn){
     decoder := gob.NewDecoder(conn)
-    //response := gob.NewEncoder(conn)
+    response := gob.NewEncoder(conn)
     switch command {
-        case GetChirps: //username
-
-        case Follow:    //username1, username2
-
-        case Unfollow:  //username1, username2
-
-        case DeleteAccount: //username
-
-        case Chirp:      //username, post
-
-        case Signup:   //username, password
+        case Signup:
             binary.Write(conn, binary.LittleEndian, signup(decoder))
-        case Login:    //username, password
-            binary.Write(conn, binary.LittleEndian, login(decoder))
-        case Search:   //username
+        case DeleteAccount:
 
+        case Login:
+            binary.Write(conn, binary.LittleEndian, login(decoder))
+        case Follow:
+
+        case Unfollow:
+
+        case Search:
+
+        case Chirp:
+            binary.Write(conn, binary.LittleEndian, chirp(decoder))
+        case GetChirps:
+            getChrips(decoder, response)
         default:
             fmt.Println("Invalid command ", command, ", ignoring.")
     }
@@ -148,4 +148,37 @@ func login(decoder *gob.Decoder) bool {
         fmt.Println("Password ", user.Password, " did not match ", userAndPass.Password)
     }
     return ok && user.Password == userAndPass.Password
+}
+
+func chirp(decoder *gob.Decoder) bool {
+    var postInfo struct {Username, NewPost string}
+    err := decoder.Decode(&postInfo)
+    if err != nil {
+        fmt.Println("Unable to decode user and post info ", err)
+        return false
+    }
+    user, ok := USERS[postInfo.Username]
+    if !ok {
+        return false
+    }
+    user.WritePost(NewPost)
+    return true
+}
+
+func getChrips(decoder *gob.Decoder, response *gob.Encoder) {
+    var username string
+    err := decoder.Decode(&username)
+    if err != nil {
+        fmt.Println("Unable to decode username ", err)
+        return
+    }
+    var result []Post{}
+    user, ok := USERS[username]
+    if ok {
+        result = USERS[username].GetAllChirps()
+    }
+    err = response.Encode(result)
+    if err != nil {
+        fmt.Println("Unable to encode chirps for user: ", username)
+    }
 }
