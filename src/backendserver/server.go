@@ -163,7 +163,7 @@ func search(decoder *gob.Decoder) bool {
 }
 
 func chirp(decoder *gob.Decoder) bool {
-    var postInfo struct {Username, NewPost string}
+    var postInfo struct {Username, Post string}
     err := decoder.Decode(&postInfo)
     if err != nil {
         fmt.Println("Unable to decode user and post info ", err)
@@ -173,7 +173,7 @@ func chirp(decoder *gob.Decoder) bool {
     if !ok {
         return false
     }
-    user.WritePost(postInfo.NewPost)
+    user.WritePost(postInfo.Post)
 
     file, err := os.Create("../../data/" + user.Username)
     if err != nil {
