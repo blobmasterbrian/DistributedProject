@@ -188,6 +188,9 @@ func home(w http.ResponseWriter, r *http.Request) {
     defer conn.Close()
 
     binary.Write(conn, binary.LittleEndian, GetChirps)
+    encoder := gob.NewEncoder(conn)
+    encoder.Encode(cookie.Value)
+    
     decoder := gob.NewDecoder(conn)
     var posts []Post
     decoder.Decode(&posts)
