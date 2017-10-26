@@ -304,14 +304,6 @@ func submitPost(w http.ResponseWriter, r *http.Request) {
     clearCache(w)
     exists, cookie := getCookie(r)
 
-    conn, err := net.Dial("tcp","127.0.0.1:5000")
-    if err != nil {
-        fmt.Println("error connecting to port 5000", err)
-        http.Redirect(w,r, "/error", http.StatusSeeOther)
-        return
-    }
-    defer conn.Close()
-
     if !exists {  // modify (also include if there is a cookie that no username is associated with
         http.Redirect(w, r, "/welcome", http.StatusSeeOther)
         return
