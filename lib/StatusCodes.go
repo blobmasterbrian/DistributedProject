@@ -12,7 +12,7 @@ const (
 	CommandGetChirps
 )
 
-// STATUS CODES (Status Codes for backend function calls, returned to frontend)
+// STATUS CODES (Status Codes for frontend/backend communication)
 const (
 	StatusAccepted = iota
 	StatusUserFound
@@ -21,6 +21,7 @@ const (
 	StatusUserNotFollowed
     StatusIncorrectPassword
     StatusDuplicateUser
+    StatusConnectionError
 	StatusInternalError
 	StatusEncodeError
 	StatusDecodeError
@@ -34,6 +35,7 @@ var statusText = map[int]string {
 	StatusUserNotFollowed:   "User Not Followed",
     StatusIncorrectPassword: "Password Is Incorrect",
     StatusDuplicateUser:     "User Already Exists",
+    StatusConnectionError:   "Server Connection Error",
 	StatusInternalError:     "I'm sorry dave, I'm afriad I can't do that",
 	StatusEncodeError:       "Gob Encode Error",
 	StatusDecodeError:       "Gob Decode Error",
