@@ -2,7 +2,6 @@ package main
 
 import(
     . "../../lib"
-    "encoding/binary"
     "encoding/gob"
     "fmt"
     "html/template"
@@ -61,13 +60,12 @@ func home(w http.ResponseWriter, r *http.Request) {
     }
     defer conn.Close()
 
-    binary.Write(conn, binary.LittleEndian, CommandGetChirps)
     encoder := gob.NewEncoder(conn)
-    encoder.Encode(cookie.Value)
+    encoder.Encode(CommandRequest{CommandGetChirps, cookie.Value})
 
+    var response CommandResponse
     decoder := gob.NewDecoder(conn)
-    var posts []Post
-    decoder.Decode(&posts)
+    decoder.Decode(&response)
 
     t, err := template.ParseFiles("../../web/homepage.html")
     if err != nil {
@@ -75,11 +73,11 @@ func home(w http.ResponseWriter, r *http.Request) {
     }
     t.Execute(w, struct {
         Username string
-        Posts []Post
+        Posts    interface{}
     }{
         cookie.Value,
-        posts,
-    })
+        response.Data,
+    })  // may be better to change Posts back to []Post and cast with error check response.Data.([]Post)
 }
 
 func signup(w http.ResponseWriter, r *http.Request) {
@@ -106,26 +104,26 @@ func signup(w http.ResponseWriter, r *http.Request) {
             return
         }
 
-        binary.Write(conn, binary.LittleEndian, CommandSignup)
+        gob.Register(struct{Username, Password string}{})  // effects of Registering each time?
         encoder := gob.NewEncoder(conn)
-        encoder.Encode(struct{
+        err = encoder.Encode(CommandRequest{CommandSignup, struct{
             Username string
             Password string
         }{
             r.PostFormValue("username"),
             r.PostFormValue("password"),
-        })
+        }})  // when err is set compiler gives unnamed field warning but doesn't when not, err should be checked for all subsequent calls too
 
-        // NOTE: expecting backend to return false if username is taken
-        var success bool
-        err = binary.Read(conn, binary.LittleEndian, &success)
+        var response CommandResponse
+        decoder := gob.NewDecoder(conn)
+        err = decoder.Decode(&response)
         if err != nil {
             fmt.Println("error reading from port 5000", err)
             http.Redirect(w, r, "/error", http.StatusSeeOther)
             return
         }
 
-        if !success {
+        if !response.Success {
             http.Redirect(w, r, "/signup", http.StatusSeeOther)
             return
         }
@@ -158,25 +156,26 @@ func login(w http.ResponseWriter, r *http.Request) {
         defer conn.Close()
 
         r.ParseForm()
-        binary.Write(conn, binary.LittleEndian, CommandLogin)
+        gob.Register(struct {Username, Password string}{})
         encoder := gob.NewEncoder(conn)
-        encoder.Encode(struct{
+        encoder.Encode(CommandRequest{CommandLogin, struct{
             Username string
             Password string
         }{
             r.PostFormValue("username"),
             r.PostFormValue("password"),
-        })
+        }})
 
-        var success bool
-        err = binary.Read(conn, binary.LittleEndian, &success)
+        var response CommandResponse
+        decoder := gob.NewDecoder(conn)
+        err = decoder.Decode(&response)
         if err != nil {
             fmt.Println("error reading from port 5000", err)
             http.Redirect(w, r, "/error", http.StatusSeeOther)
             return
         }
 
-        if !success {
+        if !response.Success {
             http.Redirect(w, r, "/login", http.StatusSeeOther)
             return
         }
@@ -227,25 +226,26 @@ func follow(w http.ResponseWriter, r *http.Request) {
         defer conn.Close()
 
         r.ParseForm()
-        binary.Write(conn, binary.LittleEndian, CommandFollow)
+        gob.Register(struct{Username1, Username2 string}{})
         encoder := gob.NewEncoder(conn)
-        encoder.Encode(struct {
+        encoder.Encode(CommandRequest{CommandFollow, struct {
             Username1 string
             Username2 string
         }{
             cookie.Value,
             r.PostFormValue("username"),
-        })
+        }})
 
-        var success bool
-        err = binary.Read(conn, binary.LittleEndian, &success)
+        var response CommandResponse
+        decoder := gob.NewDecoder(conn)
+        err = decoder.Decode(&response)
         if err != nil {
             fmt.Println("error reading from port 5000", err)
             http.Redirect(w,r, "/error", http.StatusSeeOther)
             return
         }
 
-        if success {
+        if !response.Success {
             http.Redirect(w, r, "/home", http.StatusSeeOther)
         } else {
             http.Redirect(w, r, "/error", http.StatusSeeOther)
@@ -272,25 +272,26 @@ func unfollow(w http.ResponseWriter, r *http.Request) {
         defer conn.Close()
 
         r.ParseForm()
-        binary.Write(conn, binary.LittleEndian, CommandUnfollow)
+        gob.Register(struct{Username1, Username2 string}{})
         encoder := gob.NewEncoder(conn)
-        encoder.Encode(struct {
+        encoder.Encode(CommandRequest{CommandUnfollow, struct{
             Username1 string
             Username2 string
         }{
             cookie.Value,
             r.PostFormValue("username"),
-        })
+        }})
 
-        var success bool
-        err = binary.Read(conn, binary.LittleEndian, &success)
+        var response CommandResponse
+        decoder := gob.NewDecoder(conn)
+        err = decoder.Decode(&response)
         if err != nil {
             fmt.Println("error reading from port 5000", err)
             http.Redirect(w, r, "/error", http.StatusSeeOther)
             return
         }
 
-        if success {
+        if response.Success {
             http.Redirect(w, r, "/home", http.StatusSeeOther)
         } else {
             http.Redirect(w, r, "/error", http.StatusSeeOther)
@@ -318,25 +319,26 @@ func submitPost(w http.ResponseWriter, r *http.Request) {
         defer conn.Close()
 
         r.ParseForm()
-        binary.Write(conn, binary.LittleEndian, CommandChirp)
+        gob.Register(struct{Username, Post string}{})
         encoder := gob.NewEncoder(conn)
-        encoder.Encode(struct{
+        encoder.Encode(CommandRequest{CommandChirp, struct{
             Username string
-            Post string
+            Post     string
         }{
             cookie.Value,
             r.PostFormValue("post"),
-        })
+        }})
 
-        var success bool
-        err = binary.Read(conn, binary.LittleEndian, &success)
+        var response CommandResponse
+        decoder := gob.NewDecoder(conn)
+        err = decoder.Decode(&response)
         if err != nil {
             fmt.Println("error reading from port 5000", err)
             http.Redirect(w,r, "/error", http.StatusSeeOther)
             return
         }
 
-        if success {
+        if response.Success {
             http.Redirect(w, r, "/home", http.StatusSeeOther)
         } else {
             http.Redirect(w, r, "/error", http.StatusSeeOther)
@@ -363,23 +365,26 @@ func searchResponse(w http.ResponseWriter, r *http.Request) {
         defer conn.Close()
 
         r.ParseForm()
-        binary.Write(conn, binary.LittleEndian, CommandSearch)
-        var follow struct{Searcher, Target string}
-        follow.Searcher = cookie.Value
-        follow.Target = r.FormValue("username")
+        gob.Register(struct{Searcher, Target string}{})
         encoder := gob.NewEncoder(conn)
-        encoder.Encode(follow)
+        encoder.Encode(CommandRequest{CommandSearch, struct{
+            Searcher string
+            Target   string
+        }{
+            cookie.Value,
+            r.FormValue("username"),
+        }})
 
-        var isFollow string
+        var response CommandResponse
         decoder := gob.NewDecoder(conn)
-        decoder.Decode(&isFollow)
-        if isFollow == "none" {
-            http.Redirect(w, r, "/home", http.StatusSeeOther)
-            return
-        }
+        decoder.Decode(&response)
+        //if isFollow == "none" {
+        //    http.Redirect(w, r, "/home", http.StatusSeeOther)
+        //    return
+        //}  redo using response.success
         if r.FormValue("username") != cookie.Value {  // backend function call
             t, _ := template.ParseFiles("../../web/searchResult.html")
-            t.Execute(w, struct{Username, Follow string}{r.FormValue("username"), isFollow})
+            t.Execute(w, struct{Username, Follow string}{r.FormValue("username"), response.Data.(string)})  // error check the .(string) cast
         } else {
             http.Redirect(w, r, "/home", http.StatusSeeOther)
         }
@@ -399,9 +404,9 @@ func deleteAccount(w http.ResponseWriter, r *http.Request) {
     }
     defer conn.Close()
 
-    binary.Write(conn, binary.LittleEndian, CommandDeleteAccount)
+    // assuming gob.Register(string{}) string type already registered/implemented because it does not allow it
     encoder := gob.NewEncoder(conn)
-    encoder.Encode(struct{Username string}{cookie.Value})
+    encoder.Encode(CommandRequest{CommandDeleteAccount,cookie.Value})
 
     cookie.MaxAge = -1
     cookie.Expires = time.Now().Add(-1 * time.Hour)

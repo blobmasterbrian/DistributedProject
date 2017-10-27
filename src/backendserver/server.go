@@ -2,7 +2,6 @@ package main
 
 import (
     . "../../lib"
-    "encoding/binary"
     "encoding/gob"
     "fmt"
     "io/ioutil"
@@ -25,13 +24,15 @@ func main(){
         if err != nil {
             fmt.Println("error accepting connection ", err)
         }
-        var command int32
-        err = binary.Read(conn, binary.LittleEndian, &command)
+
+        var request CommandRequest
+        decoder := gob.NewDecoder(conn)
+        decoder.Decode(&request)
         if err != nil {
             fmt.Println("error reading command ", err)
             continue
         }
-        runCommand(command, conn)
+        runCommand(conn, request)
         conn.Close()
     }
 }
@@ -69,188 +70,165 @@ func loadUsers() {
     }
 }
 
-func runCommand(command int32, conn net.Conn){
-    decoder := gob.NewDecoder(conn)
-    response := gob.NewEncoder(conn)
-    switch command {
+func runCommand(conn net.Conn, request CommandRequest){
+    serverEncoder := gob.NewEncoder(conn)
+    switch request.CommandCode {
         case CommandSignup:
-            binary.Write(conn, binary.LittleEndian, signup(decoder))
+            signup(serverEncoder, request)
         case CommandDeleteAccount:
 
         case CommandLogin:
-            binary.Write(conn, binary.LittleEndian, login(decoder))
+            login(serverEncoder, request)
         case CommandFollow:
-            binary.Write(conn, binary.LittleEndian, follow(decoder))
+            follow(serverEncoder, request)
         case CommandUnfollow:
-            binary.Write(conn, binary.LittleEndian, unfollow(decoder))
+            unfollow(serverEncoder, request)
         case CommandSearch:
-            search(decoder, response)
+            search(serverEncoder, request)
         case CommandChirp:
-            binary.Write(conn, binary.LittleEndian, chirp(decoder))
+            chirp(serverEncoder, request)
         case CommandGetChirps:
-            getChrips(decoder, response)
+            getChrips(serverEncoder, request)
         default:
-            fmt.Println("Invalid command ", command, ", ignoring.")
+            fmt.Println("Invalid command ", request.CommandCode, ", ignoring.")
     }
 }
 
 /*
     signup takes in a decoder as an argument with an expected decode resulting in a 
     username password combo.
-    signup returns true or false representing wether a user was created sucessfully
+    signup returns true or false representing whether a user was created sucessfully
 
     signup then tries to create a file ../../data/*username* and encode a new UserInfo
     object into the file.
     if this is successful, the new UserInfo object is added to the USERS map 
 */
-func signup(decoder *gob.Decoder) bool {
-    var userAndPass struct{Username, Password string}
-    err := decoder.Decode(&userAndPass)
-    if err != nil {
-        fmt.Println("error decoding ", err)
-        return false
-    }
+func signup(serverEncoder *gob.Encoder, request CommandRequest) {
+    userAndPass, ok := request.Data.(struct{Username, Password string})
+    fmt.Println(ok)  // ok should be used for error checking in future
 
     if _, err := os.Stat("../../data/" + userAndPass.Username); !os.IsNotExist(err) {
-        return false
+       fmt.Println("err", err)
+       // encode CommandResponse with failed success and proper Status Code
     }
 
     file, err := os.Create("../../data/" + userAndPass.Username)
     if err != nil {
         fmt.Println("unable to create file ", err)
-        return false
+        // same as above
     }
     defer file.Close()
 
-    encoder := gob.NewEncoder(file)
+    fileEncoder := gob.NewEncoder(file)
     newUser :=  NewUserInfo(userAndPass.Username, userAndPass.Password)
-    err = encoder.Encode(newUser)
+    err = fileEncoder.Encode(newUser)
     if err != nil {
         fmt.Println("error encoding new user ", err)
-        return false
+        // same as above
     }
     USERS[newUser.Username] = newUser
-    return true
+    serverEncoder.Encode(CommandResponse{true, StatusAccepted, nil})
 }
 
-func login(decoder *gob.Decoder) bool {
-    var userAndPass struct{Username, Password string}
-    err := decoder.Decode(&userAndPass)
-    if err != nil {
-        fmt.Println("error decoding ", err)
-        return false
-    }
+func login(serverEncoder *gob.Encoder, request CommandRequest) {
+    userAndPass := request.Data.(struct{Username, Password string})
+
     user, ok := USERS[userAndPass.Username]
     if !ok {
         fmt.Println("Could not find ", userAndPass.Username, " in map")
+        // same as above
     }
     if user.Password != userAndPass.Password {
         fmt.Println("Password ", user.Password, " did not match ", userAndPass.Password)
+    // same as above
     }
-    return ok && user.Password == userAndPass.Password
-}
+    // check condition? return ok && user.Password == userAndPass.Password
+    serverEncoder.Encode(CommandResponse{true, StatusAccepted, nil})
+    }
 
-func follow(decoder *gob.Decoder) bool {
-    var users struct{Username1, Username2 string}
-    err := decoder.Decode(&users)
-    if err != nil {
-        fmt.Println("failed to decode users ", err)
-        return false
-    }
+func follow(serverEncoder *gob.Encoder, request CommandRequest) {
+    users := request.Data.(struct{Username1, Username2 string})
+
     user, ok := USERS[users.Username1]
     user2, ok2 := USERS[users.Username2]
     if !ok || !ok2 {
         fmt.Println("User does not exist")
-        return false
+        serverEncoder.Encode(CommandResponse{false, StatusUserNotFound, nil})
     }
-    return user.Follow(user2)
+    user.Follow(user2)  // error check to see if it succeeds
+    serverEncoder.Encode(CommandResponse{true, StatusAccepted, nil})
 }
 
-func unfollow(decoder *gob.Decoder) bool {
-    var users struct{Username1, Username2 string}
-    err := decoder.Decode(&users)
-    if err != nil {
-        fmt.Println("failed to decode users ", err)
-        return false
-    }
+func unfollow(serverEncoder *gob.Encoder, request CommandRequest) {
+    users := request.Data.(struct{Username1, Username2 string})
+
     user, ok := USERS[users.Username1]
     user2, ok2 := USERS[users.Username2]
     if !ok || !ok2 {
         fmt.Println("User does not exist")
-        return false
+        serverEncoder.Encode(CommandResponse{false, StatusUserNotFound, nil})
     }
-    return user.UnFollow(user2)
-
+    user.UnFollow(user2)  // same as above
+    serverEncoder.Encode(CommandResponse{true, StatusAccepted, nil})
 }
 
-func search(decoder *gob.Decoder, response *gob.Encoder) {
-    var username struct{Searcher, Target string}
-    err := decoder.Decode(&username)
-    result := "none"
-    if err != nil {
-        fmt.Println("unable to decode users ", err)
-        result = "none"
+func search(serverEncoder *gob.Encoder, request CommandRequest) {
+    username := request.Data.(struct{Searcher, Target string})
+
+    user1, ok := USERS[username.Searcher]
+    user2, ok2 := USERS[username.Target]
+    if !ok || !ok2 {
+        serverEncoder.Encode(CommandResponse{false, StatusUserNotFound, nil})
     } else {
-        user1, ok := USERS[username.Searcher]
-        user2, ok2 := USERS[username.Target]
-        if !ok || !ok2{
-            result = "none"
-        } else{
-            if user1.IsFollowing(user2) {
-                result = "unfollow"
-            } else {
-                result =  "follow"
-            }
+        if user1.IsFollowing(user2) {
+            serverEncoder.Encode(CommandResponse{true, StatusUserFollowed, "unfollow"})
+        } else {
+            serverEncoder.Encode(CommandResponse{true, StatusUserNotFollowed, "follow"})
         }
     }
-    err = response.Encode(result)
-    if err != nil {
-        fmt.Println("failed to send response info")
-    }
 }
 
-func chirp(decoder *gob.Decoder) bool {
-    var postInfo struct {Username, Post string}
-    err := decoder.Decode(&postInfo)
-    if err != nil {
-        fmt.Println("Unable to decode user and post info ", err)
-        return false
-    }
+func chirp(serverEncoder *gob.Encoder, request CommandRequest) {
+    postInfo := request.Data.(struct{Username, Post string})
+
     user, ok := USERS[postInfo.Username]
     if !ok {
-        return false
+        serverEncoder.Encode(CommandResponse{false, StatusUserNotFound, nil})
+        return
     }
     user.WritePost(postInfo.Post)
 
     file, err := os.Create("../../data/" + user.Username)
     if err != nil {
         fmt.Println("unable to create file ", err)
-        return false
+        // return false: error creating
     }
     defer file.Close()
+
     encoder := gob.NewEncoder(file)
     err = encoder.Encode(user)
     if err != nil {
         fmt.Println("Unable to encode user ", err)
-        return false
+        serverEncoder.Encode(CommandResponse{false, StatusEncodeError, nil})
+    return
     }
-    return true
+    serverEncoder.Encode(CommandResponse{true, StatusAccepted, nil})
 }
 
-func getChrips(decoder *gob.Decoder, response *gob.Encoder) {
-    var username string
-    err := decoder.Decode(&username)
-    if err != nil {
-        fmt.Println("Unable to decode username ", err)
+// We should have docstrings for functions to explain what is expected as the Data
+// member of CommandRequest kinda like the comments we had previously in runCommand
+func getChrips(serverEncoder *gob.Encoder, request CommandRequest) {
+    username := request.Data.(string)
+
+    gob.Register([]Post{})  // register post slice as implementing interface
+    user, ok := USERS[username]
+    if !ok {
+        serverEncoder.Encode(CommandResponse{false, StatusUserNotFound, nil})
         return
     }
-    var result = []Post{}
-    user, ok := USERS[username]
-    if ok {
-        result = user.GetAllChirps()
-    }
-    err = response.Encode(result)
+    err := serverEncoder.Encode(CommandResponse{true, StatusAccepted, user.GetAllChirps()})
     if err != nil {
         fmt.Println("Unable to encode chirps for user: ", username)
+        // encode failure response?
     }
 }

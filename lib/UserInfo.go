@@ -5,14 +5,14 @@ import (
     "container/heap"
 )
 
-
 type UserInfo struct {
-	Username   string
-	Password   string
-	Following  map[string]*UserInfo
-    Posts      []Post
+	Username  string
+	Password  string
+	Following map[string]*UserInfo
+    Posts     []Post
 }
 
+// NOTE: no longer necessary as it is no longer package private
 func NewUserInfo(username, password string) *UserInfo {
     newUser := new(UserInfo)
     newUser.Username = username
@@ -22,11 +22,11 @@ func NewUserInfo(username, password string) *UserInfo {
 }
 
 type Post struct {
-    Poster   string
-    Message  string
-    Time     string
-    Stamp    time.Time
-    Index    int  //index of post in priority queue
+    Poster  string
+    Message string
+    Time    string
+    Stamp   time.Time
+    Index   int  //index of post in priority queue
 }
 
 type PriorityQueue []*Post
