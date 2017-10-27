@@ -5,31 +5,35 @@ import (
     "encoding/gob"
     "fmt"
     "io/ioutil"
+    "log"
     "net"
     "os"
 )
 
 var USERS = map[string]*UserInfo{}      // Map of all users
+var LOG map[string]*log.Logger
 
 func main(){
+    LOG = InitLog("../../log/backend.txt")
     loadUsers()
 
     server, err := net.Listen("tcp", ":5000")
     if err != nil {
-        fmt.Println("error starting server ", err)
+        LOG["error"].Println("error starting server ", err)
         return
     }
     for {
         conn, err := server.Accept()
         if err != nil {
-            fmt.Println("error accepting connection ", err)
+            LOG["error"].Println("error accepting connection ", err)
+            continue
         }
 
         var request CommandRequest
         decoder := gob.NewDecoder(conn)
         decoder.Decode(&request)
         if err != nil {
-            fmt.Println("error reading command ", err)
+            LOG["error"].Println("error reading command ", err)
             continue
         }
         runCommand(conn, request)
@@ -47,21 +51,21 @@ func main(){
 func loadUsers() {
     users, err := ioutil.ReadDir("../../data")
     if err != nil {
-        fmt.Println("unable to open lib directory")
+        LOG["error"].Println("unable to read the data directory ", err)
         panic(err)
     }
     for _, user := range users {
         if !user.IsDir() {
             file, err := os.Open("../../data/" + user.Name())
             if err != nil {
-                fmt.Println("Unable to open file: ", user.Name(),", skipping. ",err)
+                LOG["warning"].Println("Unable to open file ", user.Name(), ", skipping", err)
                 continue
             }
             decoder := gob.NewDecoder(file)
             var uInfo UserInfo
             err = decoder.Decode(&uInfo)
             if err != nil {
-                fmt.Println("error decoding, ", err)
+                LOG["error"].Println("Unable to decode ", err)
                 panic(err)
             }
             USERS[uInfo.Username] = &uInfo
@@ -71,6 +75,7 @@ func loadUsers() {
 }
 
 func runCommand(conn net.Conn, request CommandRequest){
+    LOG["info"].Println("Running command ", request.CommandCode)
     serverEncoder := gob.NewEncoder(conn)
     switch request.CommandCode {
         case CommandSignup:
@@ -90,7 +95,7 @@ func runCommand(conn net.Conn, request CommandRequest){
         case CommandGetChirps:
             getChrips(serverEncoder, request)
         default:
-            fmt.Println("Invalid command ", request.CommandCode, ", ignoring.")
+            LOG["warning"].Println("Invalid command ", request.CommandCode, ", ignoring.")
     }
 }
 
