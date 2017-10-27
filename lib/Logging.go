@@ -6,7 +6,6 @@ import (
 )
 
 
-
 func InitLog(path string) map[string]*log.Logger {
     file, err := os.OpenFile(path, os.O_RDWR | os.O_CREATE | os.O_APPEND, 0666)
     if err != nil{

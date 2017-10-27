@@ -19,26 +19,24 @@ const (
 	StatusUserNotFound
 	StatusUserFollowed
 	StatusUserNotFollowed
-	StatusEmpty
-	StatusCreationError
-	StatusWriteError
-	StatusReadError
-	StatusEncodeError  // same as CreationError
+    StatusIncorrectPassword
+    StatusDuplicateUser
+	StatusInternalError
+	StatusEncodeError
 	StatusDecodeError
 )
 
 var statusText = map[int]string {
-	StatusAccepted:        "Command Accepted and Executed Successfully",
-	StatusUserFound:       "User Found",
-	StatusUserNotFound:    "User Does Not Exist",
-	StatusUserFollowed:    "User Followed",
-	StatusUserNotFollowed: "User Not Followed",
-	StatusEmpty:           "Object is Empty",
-	StatusCreationError:   "User Could Not Be Created",
-	StatusWriteError:      "Binary Write Error",
-	StatusReadError:       "Binary Read Error",
-	StatusEncodeError:     "Gob Encode Error",
-	StatusDecodeError:     "Gob Decode Error",
+	StatusAccepted:          "Command Accepted and Executed Successfully",
+	StatusUserFound:         "User Found",
+	StatusUserNotFound:      "User Does Not Exist",
+	StatusUserFollowed:      "User Followed",
+	StatusUserNotFollowed:   "User Not Followed",
+    StatusIncorrectPassword: "Password Is Incorrect",
+    StatusDuplicateUser:     "User Already Exists",
+	StatusInternalError:     "I'm sorry dave, I'm afriad I can't do that",
+	StatusEncodeError:       "Gob Encode Error",
+	StatusDecodeError:       "Gob Decode Error",
 }
 
 func StatusText(code int) string {
