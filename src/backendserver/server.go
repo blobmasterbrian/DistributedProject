@@ -12,7 +12,7 @@ import (
 var USERS = map[string]*UserInfo{}      // Map of all users
 var LOG map[string]*log.Logger
 
-func main(){
+func main() {
     LOG = InitLog("../../log/backend.txt")
     loadUsers()
 
@@ -76,7 +76,7 @@ func loadUsers() {
     }
 }
 
-func runCommand(conn net.Conn, request CommandRequest){
+func runCommand(conn net.Conn, request CommandRequest) {
     LOG["info"].Println("Running command ", request.CommandCode)
     serverEncoder := gob.NewEncoder(conn)
     switch request.CommandCode {
