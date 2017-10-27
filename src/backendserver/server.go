@@ -30,6 +30,7 @@ func main(){
         }
 
         var request CommandRequest
+        gob.Register(struct {Username, Password string}{})
         decoder := gob.NewDecoder(conn)
         decoder.Decode(&request)
         if err != nil {
@@ -69,6 +70,7 @@ func loadUsers() {
                 panic(err)
             }
             USERS[uInfo.Username] = &uInfo
+            LOG["info"].Println("Load user", uInfo.Username)
             file.Close()
         }
     }
@@ -113,13 +115,13 @@ func signup(serverEncoder *gob.Encoder, request CommandRequest) {
     fmt.Println(ok)  // ok should be used for error checking in future
 
     if _, err := os.Stat("../../data/" + userAndPass.Username); !os.IsNotExist(err) {
-       fmt.Println("err", err)
+       LOG["info"].Println("username", userAndPass.Username, "already exists", err)
        // encode CommandResponse with failed success and proper Status Code
     }
 
     file, err := os.Create("../../data/" + userAndPass.Username)
     if err != nil {
-        fmt.Println("unable to create file ", err)
+        LOG["error"].Println("unable to create file ", err)
         // same as above
     }
     defer file.Close()
@@ -128,7 +130,7 @@ func signup(serverEncoder *gob.Encoder, request CommandRequest) {
     newUser :=  NewUserInfo(userAndPass.Username, userAndPass.Password)
     err = fileEncoder.Encode(newUser)
     if err != nil {
-        fmt.Println("error encoding new user ", err)
+        LOG["error"].Println("error encoding new user ", err)
         // same as above
     }
     USERS[newUser.Username] = newUser
@@ -140,16 +142,16 @@ func login(serverEncoder *gob.Encoder, request CommandRequest) {
 
     user, ok := USERS[userAndPass.Username]
     if !ok {
-        fmt.Println("Could not find ", userAndPass.Username, " in map")
+        LOG["error"].Println("Could not find ", userAndPass.Username, " in map")
         // same as above
     }
     if user.Password != userAndPass.Password {
-        fmt.Println("Password ", user.Password, " did not match ", userAndPass.Password)
-    // same as above
+        LOG["info"].Println("Password ", user.Password, " did not match ", userAndPass.Password)
+        // same as above
     }
     // check condition? return ok && user.Password == userAndPass.Password
     serverEncoder.Encode(CommandResponse{true, StatusAccepted, nil})
-    }
+ }
 
 func follow(serverEncoder *gob.Encoder, request CommandRequest) {
     users := request.Data.(struct{Username1, Username2 string})
@@ -157,7 +159,7 @@ func follow(serverEncoder *gob.Encoder, request CommandRequest) {
     user, ok := USERS[users.Username1]
     user2, ok2 := USERS[users.Username2]
     if !ok || !ok2 {
-        fmt.Println("User does not exist")
+        LOG["error"].Println("User does not exist")
         serverEncoder.Encode(CommandResponse{false, StatusUserNotFound, nil})
     }
     user.Follow(user2)  // error check to see if it succeeds
@@ -170,7 +172,7 @@ func unfollow(serverEncoder *gob.Encoder, request CommandRequest) {
     user, ok := USERS[users.Username1]
     user2, ok2 := USERS[users.Username2]
     if !ok || !ok2 {
-        fmt.Println("User does not exist")
+        LOG["error"].Println("User does not exist")
         serverEncoder.Encode(CommandResponse{false, StatusUserNotFound, nil})
     }
     user.UnFollow(user2)  // same as above
@@ -205,7 +207,7 @@ func chirp(serverEncoder *gob.Encoder, request CommandRequest) {
 
     file, err := os.Create("../../data/" + user.Username)
     if err != nil {
-        fmt.Println("unable to create file ", err)
+        LOG["error"].Println("unable to create file ", err)
         // return false: error creating
     }
     defer file.Close()
@@ -213,7 +215,7 @@ func chirp(serverEncoder *gob.Encoder, request CommandRequest) {
     encoder := gob.NewEncoder(file)
     err = encoder.Encode(user)
     if err != nil {
-        fmt.Println("Unable to encode user ", err)
+        LOG["error"].Println("Unable to encode user ", err)
         serverEncoder.Encode(CommandResponse{false, StatusEncodeError, nil})
     return
     }
@@ -233,7 +235,7 @@ func getChrips(serverEncoder *gob.Encoder, request CommandRequest) {
     }
     err := serverEncoder.Encode(CommandResponse{true, StatusAccepted, user.GetAllChirps()})
     if err != nil {
-        fmt.Println("Unable to encode chirps for user: ", username)
+        LOG["error"].Println("Unable to encode chirps for user: ", username)
         // encode failure response?
     }
 }
