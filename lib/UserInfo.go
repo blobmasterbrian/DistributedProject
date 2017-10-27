@@ -6,10 +6,11 @@ import (
 )
 
 type UserInfo struct {
-	Username  string
-	Password  string
-	Following map[string]*UserInfo
-    Posts     []Post
+    Username   string
+    Password   string
+    Following  map[string]*UserInfo
+    FollowedBy []*UserInfo
+    Posts      []Post
 }
 
 // NOTE: no longer necessary as it is no longer package private
@@ -69,6 +70,7 @@ func (user *UserInfo) Follow(newFollow *UserInfo) bool {
     if newFollow == nil || user.Following[newFollow.Username] != nil {
         return false
     }
+    newFollow.FollowedBy = append(newFollow.FollowedBy, user)
     user.Following[newFollow.Username] = newFollow
     return true
 }
@@ -76,6 +78,12 @@ func (user *UserInfo) Follow(newFollow *UserInfo) bool {
 func (user *UserInfo) UnFollow(oldFollow *UserInfo) bool {
     if oldFollow == nil || user.Following[oldFollow.Username] == nil {
         return false
+    }
+    for i := range oldFollow.FollowedBy {
+        if oldFollow.FollowedBy[i] == user {
+            oldFollow.FollowedBy = append(oldFollow.FollowedBy[:i], oldFollow.FollowedBy[i+1:]...)
+            break
+        }
     }
     delete(user.Following, oldFollow.Username)
     return true
@@ -88,6 +96,12 @@ func (user *UserInfo) IsFollowing(other *UserInfo) bool {
         }
     }
     return false
+}
+
+func (user *UserInfo) deleteAccount() {
+    for _, other := range user.FollowedBy{
+        other.UnFollow(user)
+    }
 }
 
 func (user *UserInfo) WritePost(msg string){
