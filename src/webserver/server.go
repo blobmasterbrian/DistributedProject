@@ -2,7 +2,9 @@ package main
 
 import(
     . "../../lib"
+    "crypto/sha512"
     "encoding/gob"
+    "encoding/hex"
     "fmt"
     "html/template"
     "net"
@@ -104,6 +106,7 @@ func signup(w http.ResponseWriter, r *http.Request) {
             return
         }
 
+        passHash := sha512.Sum512([]byte(r.PostFormValue("password")))
         gob.Register(struct{Username, Password string}{})  // effects of Registering each time?
         encoder := gob.NewEncoder(conn)
         err = encoder.Encode(CommandRequest{CommandSignup, struct{
@@ -111,7 +114,7 @@ func signup(w http.ResponseWriter, r *http.Request) {
             Password string
         }{
             r.PostFormValue("username"),
-            r.PostFormValue("password"),
+            hex.EncodeToString(passHash[:]),
         }})  // when err is set compiler gives unnamed field warning but doesn't when not, err should be checked for all subsequent calls too
 
         var response CommandResponse
@@ -150,12 +153,13 @@ func login(w http.ResponseWriter, r *http.Request) {
         conn, err := net.Dial("tcp","127.0.0.1:5000")
         if err != nil {
             fmt.Println("error connecting to port 5000", err)
-            http.Redirect(w,r, "/error", http.StatusSeeOther)
+            http.Redirect(w, r, "/error", http.StatusSeeOther)
             return
         }
         defer conn.Close()
 
         r.ParseForm()
+        passHash := sha512.Sum512([]byte(r.PostFormValue("password")))
         gob.Register(struct {Username, Password string}{})
         encoder := gob.NewEncoder(conn)
         encoder.Encode(CommandRequest{CommandLogin, struct{
@@ -163,7 +167,7 @@ func login(w http.ResponseWriter, r *http.Request) {
             Password string
         }{
             r.PostFormValue("username"),
-            r.PostFormValue("password"),
+            hex.EncodeToString(passHash[:]),
         }})
 
         var response CommandResponse
