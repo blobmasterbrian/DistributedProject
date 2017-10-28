@@ -51,7 +51,7 @@ func main() {
 func loadUsers() {
     users, err := ioutil.ReadDir("../../data")
     if err != nil {
-        LOG[ERROR].Println("Unable to read the data directory ", err)
+        LOG[ERROR].Println("Unable to read the data directory", err)
         panic(err)
     }
     for _, user := range users {
@@ -80,7 +80,7 @@ func runCommand(conn net.Conn, request CommandRequest) {
     LOG[INFO].Println("Running command ", request.CommandCode)
     serverEncoder := gob.NewEncoder(conn)
     switch request.CommandCode {
-        case CommandSignup:
+        case CommandSignup:  // map int to function pointer no case switch necessary
             signup(serverEncoder, request)
         case CommandDeleteAccount:
 
@@ -226,7 +226,7 @@ func search(serverEncoder *gob.Encoder, request CommandRequest) {
     user2, ok2 := USERS[username.Target]
     if !ok || !ok2 {
         LOG[WARNING].Println(StatusText(StatusUserNotFound))
-        serverEncoder.Encode(CommandResponse{false, StatusUserNotFound, nil})
+        serverEncoder.Encode(CommandResponse{false, StatusUserNotFound, nil})  // change to true cause not failure occurred, split ok1 and ok2
     } else {
         LOG[INFO].Println("User", user1.Username, "search", user2.Username)
         if user1.IsFollowing(user2) {
