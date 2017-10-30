@@ -9,6 +9,7 @@ import(
     "log"
     "net"
     "net/http"
+    "os"
     "time"
 )
 
@@ -16,6 +17,9 @@ const LOGIN_COOKIE = "loginCookie"  // Cookie to keep users logged in
 var LOG map[int]*log.Logger
 
 func main() {
+    if _, err := os.Stat("../../log"); os.IsNotExist(err) {
+        os.Mkdir("../../log", os.ModePerm)
+    }
     LOG = InitLog("../../log/frontend.txt")  // create logger map associated with different log codes
     http.HandleFunc("/", welcomeRedirect)  // function for server address page
     http.HandleFunc("/welcome", welcome)   // function for welcome page (main page for not logged in users)

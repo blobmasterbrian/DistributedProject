@@ -13,6 +13,12 @@ var USERS = map[string]*UserInfo{}      // Map of all users
 var LOG map[int]*log.Logger
 
 func main() {
+    if _, err := os.Stat("../../log"); os.IsNotExist(err) {
+        os.Mkdir("../../log", os.ModePerm)
+    }
+    if _, err := os.Stat("../../data"); os.IsNotExist(err) {
+        os.Mkdir("../../data", os.ModePerm)
+    }
     LOG = InitLog("../../log/backend.txt")
     loadUsers()
 
