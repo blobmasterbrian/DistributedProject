@@ -27,6 +27,7 @@ const (
 	StatusDecodeError
 )
 
+// Message associated with each status
 var statusText = map[int]string {
 	StatusAccepted:          "Command Accepted and Executed Successfully",
 	StatusUserFound:         "User Found",
@@ -41,15 +42,18 @@ var statusText = map[int]string {
 	StatusDecodeError:       "Gob Decode Error",
 }
 
+// Function to convert a status code to the associated message
 func StatusText(code int) string {
 	return statusText[code]
 }
 
+// Struct for uniform communication from frontend to backend
 type CommandRequest struct {
 	CommandCode int
 	Data        interface{}
 }
 
+// Struct for uniform communication from backend to frontend
 type CommandResponse struct {
 	Success bool
 	Status  int
