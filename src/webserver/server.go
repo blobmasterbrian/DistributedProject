@@ -312,56 +312,56 @@ func searchResult(w http.ResponseWriter, r *http.Request) {
         http.Redirect(w, r, "/welcome", http.StatusSeeOther)
         return
     }
+    conn, err := net.Dial("tcp","127.0.0.1:5000")
+    if err != nil {
+        LOG[ERROR].Println(StatusText(StatusConnectionError), err)
+        http.Redirect(w, r, "/error", http.StatusSeeOther)
+        return
+    }
+    defer conn.Close()
+
+    r.ParseForm()
+    LOG[INFO].Println("Form Values: Username", r.PostFormValue("username"))
+    if cookie.Value == r.PostFormValue("username") {
+        LOG[INFO].Println("User Self Search")
+        http.Redirect(w, r, "/home", http.StatusSeeOther)
+        return
+    }
+    encoder := gob.NewEncoder(conn)
+    err = encoder.Encode(CommandRequest{CommandSearch, struct{
+        Searcher string
+        Target   string
+    }{
+        cookie.Value,
+        r.FormValue("username"),
+    }})
+    if err != nil {
+        LOG[ERROR].Println(StatusText(StatusEncodeError), err)
+        http.Redirect(w, r, "/error", http.StatusSeeOther)
+        return
+    }
+
+    var response CommandResponse
+    decoder := gob.NewDecoder(conn)
+    err = decoder.Decode(&response)
+    if err != nil {
+        LOG[ERROR].Println(StatusText(StatusDecodeError), err)
+        http.Redirect(w, r, "/error", http.StatusSeeOther)
+        return
+    }
+    if !response.Success {
+        if response.Status == StatusUserNotFound {
+            LOG[WARNING].Println(StatusText(response.Status))
+            http.Redirect(w, r, "/home", http.StatusSeeOther)
+        } else {
+            LOG[ERROR].Println(StatusText(response.Status))
+            http.Redirect(w, r, "/error", http.StatusSeeOther)
+        }
+        return
+    }
+
     if r.Method == http.MethodGet {
         LOG[INFO].Println("Search Results Page")
-        conn, err := net.Dial("tcp","127.0.0.1:5000")
-        if err != nil {
-            LOG[ERROR].Println(StatusText(StatusConnectionError), err)
-            http.Redirect(w, r, "/error", http.StatusSeeOther)
-            return
-        }
-        defer conn.Close()
-
-        r.ParseForm()
-        LOG[INFO].Println("Form Values: Username", r.PostFormValue("username"))
-        if cookie.Value == r.PostFormValue("username") {
-            LOG[INFO].Println("User Self Search")
-            http.Redirect(w, r, "/home", http.StatusSeeOther)
-            return
-        }
-        encoder := gob.NewEncoder(conn)
-        err = encoder.Encode(CommandRequest{CommandSearch, struct{
-            Searcher string
-            Target   string
-        }{
-            cookie.Value,
-            r.FormValue("username"),
-        }})
-        if err != nil {
-            LOG[ERROR].Println(StatusText(StatusEncodeError), err)
-            http.Redirect(w, r, "/error", http.StatusSeeOther)
-            return
-        }
-
-        var response CommandResponse
-        decoder := gob.NewDecoder(conn)
-        err = decoder.Decode(&response)
-        if err != nil {
-            LOG[ERROR].Println(StatusText(StatusDecodeError), err)
-            http.Redirect(w, r, "/error", http.StatusSeeOther)
-            return
-        }
-        if !response.Success {
-            if response.Status == StatusUserNotFound {
-                LOG[WARNING].Println(StatusText(response.Status))
-                http.Redirect(w, r, "/home", http.StatusSeeOther)
-            } else {
-                LOG[ERROR].Println(StatusText(response.Status))
-                http.Redirect(w, r, "/error", http.StatusSeeOther)
-            }
-            return
-        }
-
         t, err := template.ParseFiles("../../web/search-result.html")
         if err != nil {
             LOG[ERROR].Println("HTML Template Error", err)
@@ -374,7 +374,7 @@ func searchResult(w http.ResponseWriter, r *http.Request) {
             http.Redirect(w, r, "/error", http.StatusSeeOther)
         }
     } else if r.Method == http.MethodPost {
-        LOG[INFO].Println("Executing Follow")
+        LOG[INFO].Println("Executing Follow/Unfollow")
         conn, err := net.Dial("tcp","127.0.0.1:5000")
         if err != nil {
             LOG[ERROR].Println(StatusText(StatusConnectionError), err)
@@ -386,13 +386,23 @@ func searchResult(w http.ResponseWriter, r *http.Request) {
         r.ParseForm()
         LOG[INFO].Println("Form Values: Username", r.PostFormValue("username"))
         encoder := gob.NewEncoder(conn)
-        err = encoder.Encode(CommandRequest{CommandFollow, struct{
-            Username1 string
-            Username2 string
-        }{
-            cookie.Value,
-            r.PostFormValue("username"),
-        }})
+        if response.Data == "Follow" {
+            err = encoder.Encode(CommandRequest{CommandFollow, struct {
+                Username1 string
+                Username2 string
+            }{
+                cookie.Value,
+                r.PostFormValue("username"),
+            }})
+        } else if response.Data == "Unfollow" {
+            err = encoder.Encode(CommandRequest{CommandUnfollow, struct {
+                Username1 string
+                Username2 string
+            }{
+                cookie.Value,
+                r.PostFormValue("username"),
+            }})
+        }
         if err != nil {
             LOG[ERROR].Println(StatusText(StatusEncodeError), err)
             http.Redirect(w, r, "/error", http.StatusSeeOther)
