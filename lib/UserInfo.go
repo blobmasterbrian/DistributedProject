@@ -10,7 +10,7 @@ type UserInfo struct {
     Username   string
     Password   string
     Following  map[string]*UserInfo
-    FollowedBy []*UserInfo
+    FollowedBy []string
     Posts      []Post
 }
 
@@ -79,7 +79,7 @@ func (user *UserInfo) Follow(newFollow *UserInfo) bool {
     if newFollow == nil || user.Following[newFollow.Username] != nil {
         return false
     }
-    newFollow.FollowedBy = append(newFollow.FollowedBy, user)
+    newFollow.FollowedBy = append(newFollow.FollowedBy, user.Username)
     user.Following[newFollow.Username] = newFollow
     return true
 }
@@ -90,7 +90,7 @@ func (user *UserInfo) UnFollow(oldFollow *UserInfo) bool {
         return false
     }
     for i := range oldFollow.FollowedBy {
-        if oldFollow.FollowedBy[i] == user {
+        if oldFollow.FollowedBy[i] == user.Username {
             oldFollow.FollowedBy = append(oldFollow.FollowedBy[:i], oldFollow.FollowedBy[i+1:]...)
             break
         }
@@ -109,12 +109,6 @@ func (user *UserInfo) IsFollowing(other *UserInfo) bool {
     return false
 }
 
-// Deletes account of the calling UserInfo
-func (user *UserInfo) deleteAccount() {
-    for len(user.FollowedBy) > 0 {
-        user.FollowedBy[0].UnFollow(user)
-    }
-}
 
 // Creates a Post appended to UserInfo's Posts member
 func (user *UserInfo) WritePost(msg string){

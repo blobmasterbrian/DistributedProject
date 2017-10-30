@@ -128,22 +128,9 @@ func signup(serverEncoder *gob.Encoder, request CommandRequest) {
        return
     }
 
-    file, err := os.Create("../../data/" + userAndPass.Username)
-    if err != nil {
-        LOG[ERROR].Println("Unable to create file", err)
-        serverEncoder.Encode(CommandResponse{false, StatusInternalError, nil})
-        return
-    }
-    defer file.Close()
 
-    fileEncoder := gob.NewEncoder(file)
     newUser :=  NewUserInfo(userAndPass.Username, userAndPass.Password)
-    err = fileEncoder.Encode(newUser)
-    if err != nil {
-        LOG[ERROR].Println(StatusText(StatusEncodeError), err)
-        serverEncoder.Encode(CommandResponse{false, StatusEncodeError, nil})
-        return
-    }
+    writeUser(newUser)
 
     USERS[newUser.Username] = newUser
     LOG[INFO].Println("Created user", newUser.Username)
@@ -192,20 +179,7 @@ func follow(serverEncoder *gob.Encoder, request CommandRequest) {
         serverEncoder.Encode(CommandResponse{false, StatusInternalError, nil})
         return
     }
-    file, err := os.Create("../../data/" + user.Username)
-    if err != nil {
-        LOG[ERROR].Println("Unable to create file ", err)
-        return
-    }
-    defer file.Close()
-
-    encoder := gob.NewEncoder(file)
-    err = encoder.Encode(user)
-    if err != nil {
-        LOG[ERROR].Println(StatusText(StatusEncodeError), err)
-        serverEncoder.Encode(CommandResponse{false, StatusEncodeError, nil})
-        return
-    }
+    writeUser(user)
 
     serverEncoder.Encode(CommandResponse{true, StatusAccepted, nil})
 }
@@ -230,20 +204,7 @@ func unfollow(serverEncoder *gob.Encoder, request CommandRequest) {
         serverEncoder.Encode(CommandResponse{false, StatusInternalError, nil})
         return
     }
-    file, err := os.Create("../../data/" + user.Username)
-    if err != nil {
-        LOG[ERROR].Println("Unable to create file ", err)
-        return
-    }
-    defer file.Close()
-
-    encoder := gob.NewEncoder(file)
-    err = encoder.Encode(user)
-    if err != nil {
-        LOG[ERROR].Println(StatusText(StatusEncodeError), err)
-        serverEncoder.Encode(CommandResponse{false, StatusEncodeError, nil})
-        return
-    }
+    writeUser(user)
 
     serverEncoder.Encode(CommandResponse{true, StatusAccepted, nil})
 }
@@ -286,21 +247,8 @@ func chirp(serverEncoder *gob.Encoder, request CommandRequest) {
         return
     }
     user.WritePost(postInfo.Post)
+    writeUser(user)
 
-    file, err := os.Create("../../data/" + user.Username)
-    if err != nil {
-        LOG[ERROR].Println("Unable to create file ", err)
-        return
-    }
-    defer file.Close()
-
-    encoder := gob.NewEncoder(file)
-    err = encoder.Encode(user)
-    if err != nil {
-        LOG[ERROR].Println(StatusText(StatusEncodeError), err)
-        serverEncoder.Encode(CommandResponse{false, StatusEncodeError, nil})
-        return
-    }
     serverEncoder.Encode(CommandResponse{true, StatusAccepted, nil})
 }
 
@@ -321,4 +269,21 @@ func getChrips(serverEncoder *gob.Encoder, request CommandRequest) {
         return
     }
     serverEncoder.Encode(CommandResponse{true, StatusAccepted, user.GetAllChirps()})
+}
+
+func writeUser(user *UserInfo) {
+    file, err := os.Create("../../data/" + user.Username)
+    if err != nil {
+        LOG[ERROR].Println("Unable to create file ", err)
+        return
+    }
+    defer file.Close()
+
+    encoder := gob.NewEncoder(file)
+    err = encoder.Encode(user)
+    if err != nil {
+        LOG[ERROR].Println(StatusText(StatusEncodeError), err)
+        return
+    }
+
 }
