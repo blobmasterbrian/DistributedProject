@@ -87,7 +87,7 @@ func runCommand(conn net.Conn, request CommandRequest) {
         case CommandSignup:  // map int to function pointer no case switch necessary
             signup(serverEncoder, request)
         case CommandDeleteAccount:
-
+            deleteAccount(serverEncoder, request)
         case CommandLogin:
             login(serverEncoder, request)
         case CommandFollow:
@@ -134,6 +134,27 @@ func signup(serverEncoder *gob.Encoder, request CommandRequest) {
 
     USERS[newUser.Username] = newUser
     LOG[INFO].Println("Created user", newUser.Username)
+    serverEncoder.Encode(CommandResponse{true, StatusAccepted, nil})
+}
+
+func deleteAccount(serverEncoder *gob.Encoder, request CommandRequest) {
+    username, ok := request.Data.(string)
+    if !ok {
+        LOG[ERROR].Println(StatusText(StatusDecodeError))
+        serverEncoder.Encode(CommandResponse{false, StatusDecodeError, nil})
+        return
+    }
+    user, ok := USERS[username]
+    if !ok {
+        LOG[INFO].Println(StatusText(StatusUserNotFound), username)
+        serverEncoder.Encode(CommandResponse{false, StatusUserNotFound, nil})
+        return
+    }
+    for _, otherUser := range user.FollowedBy {
+        USERS[otherUser].UnFollow(user)
+    }
+    os.Remove("../../data/" + user.Username)
+    delete(USERS, user.Username)
     serverEncoder.Encode(CommandResponse{true, StatusAccepted, nil})
 }
 
