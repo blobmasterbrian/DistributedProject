@@ -14,14 +14,14 @@
         Welcome, {{.Username}}
         </h1>
 	    Search Users:
-        <form action="http://127.0.0.1:8080/search-response" method="get">
+        <form action="http://127.0.0.1:8080/search-result" method="get">
 	        <input type="text" name="username">
             <input type="submit" name="submit" value="search">
         </form>
         <br>
         Post:
         <br>
-        <form action="http://127.0.0.1:8080/submit-post" method="post">
+        <form action="http://127.0.0.1:8080/home" method="post">
             <textarea maxlength="100" rows="4" cols="50" name="post"></textarea><br>
             <input type="submit" value="post">
         </form>

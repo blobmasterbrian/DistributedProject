@@ -16,20 +16,16 @@ const LOGIN_COOKIE = "loginCookie"  // Cookie to keep users logged in
 var LOG map[int]*log.Logger
 
 func main() {
-    LOG = InitLog("../../log/frontend.txt")   // create logger map associated with different log codes
-    http.HandleFunc("/", welcomeRedirect)   // function for server address page
-    http.HandleFunc("/welcome", welcome)    // function for welcome page (main page for not logged in users)
-    http.HandleFunc("/signup", signup)      // function for signup page
-    http.HandleFunc("/login", login)        // function for login page
-    http.HandleFunc("/logout", logout)      // function for logout page
-    http.HandleFunc("/home", home)          // function for home page (main page for logged in users)
-    http.HandleFunc("/error", errorPage)    // function for error page
-
-    http.HandleFunc("/follow", follow)                   // function for follow submission
-    http.HandleFunc("/unfollow", unfollow)               // function for unfollow submission
-    http.HandleFunc("/submit-post", submitPost)          // function for post submission
-    http.HandleFunc("/search-response", searchResponse)  // function for search submission
-    http.HandleFunc("/delete-account", deleteAccount)    // function for account deletion submission
+    LOG = InitLog("../../log/frontend.txt")  // create logger map associated with different log codes
+    http.HandleFunc("/", welcomeRedirect)  // function for server address page
+    http.HandleFunc("/welcome", welcome)   // function for welcome page (main page for not logged in users)
+    http.HandleFunc("/signup", signup)     // function for signup page
+    http.HandleFunc("/login", login)       // function for login page
+    http.HandleFunc("/logout", logout)     // function for logout page
+    http.HandleFunc("/home", home)         // function for home page (main page for logged in users)
+    http.HandleFunc("/error", errorPage)   // function for error page
+    http.HandleFunc("/search-result", searchResult)    // function for search submission
+    http.HandleFunc("/delete-account", deleteAccount)  // function for account deletion submission
 
     gob.Register([]Post{})
     gob.Register(struct{Username, Password string}{})
@@ -64,52 +60,94 @@ func home(w http.ResponseWriter, r *http.Request) {
         return
     }
 
-    conn, err := net.Dial("tcp","127.0.0.1:5000")
-    if err != nil {
-        LOG[ERROR].Println(StatusText(StatusConnectionError), err)
-        http.Redirect(w, r, "/error", http.StatusSeeOther)
-        return
-    }
-    defer conn.Close()
+    if r.Method == http.MethodGet {
+        conn, err := net.Dial("tcp", "127.0.0.1:5000")
+        if err != nil {
+            LOG[ERROR].Println(StatusText(StatusConnectionError), err)
+            http.Redirect(w, r, "/error", http.StatusSeeOther)
+            return
+        }
+        defer conn.Close()
 
-    encoder := gob.NewEncoder(conn)
-    err = encoder.Encode(CommandRequest{CommandGetChirps, cookie.Value})
-    if err != nil {
-        LOG[ERROR].Println(StatusText(StatusEncodeError), err)
-        http.Redirect(w, r, "/error", http.StatusSeeOther)
-        return
-    }
+        encoder := gob.NewEncoder(conn)
+        err = encoder.Encode(CommandRequest{CommandGetChirps, cookie.Value})
+        if err != nil {
+            LOG[ERROR].Println(StatusText(StatusEncodeError), err)
+            http.Redirect(w, r, "/error", http.StatusSeeOther)
+            return
+        }
 
-    var response CommandResponse
-    decoder := gob.NewDecoder(conn)
-    err = decoder.Decode(&response)
-    if err != nil {
-        LOG[ERROR].Println(StatusText(StatusDecodeError), err)
-        http.Redirect(w, r, "/error", http.StatusSeeOther)
-        return
-    }
-    if !response.Success {
-        LOG[WARNING].Println(StatusText(response.Status))
-        http.Redirect(w, r, "/error", http.StatusSeeOther)
-        return
-    }
+        var response CommandResponse
+        decoder := gob.NewDecoder(conn)
+        err = decoder.Decode(&response)
+        if err != nil {
+            LOG[ERROR].Println(StatusText(StatusDecodeError), err)
+            http.Redirect(w, r, "/error", http.StatusSeeOther)
+            return
+        }
+        if !response.Success {
+            LOG[WARNING].Println(StatusText(response.Status))
+            http.Redirect(w, r, "/error", http.StatusSeeOther)
+            return
+        }
 
-    t, err := template.ParseFiles("../../web/homepage.html")
-    if err != nil {
-        LOG[ERROR].Println("HTML Template Error", err)
-        http.Redirect(w, r, "/error", http.StatusSeeOther)
-        return
-    }
-    err = t.Execute(w, struct {
-        Username string
-        Posts    interface{}
-    }{
-        cookie.Value,
-        response.Data,
-    })
-    if err != nil {
-        LOG[ERROR].Println("HTML Template Execution Error", err)
-        http.Redirect(w, r, "/error", http.StatusSeeOther)
+        t, err := template.ParseFiles("../../web/homepage.html")
+        if err != nil {
+            LOG[ERROR].Println("HTML Template Error", err)
+            http.Redirect(w, r, "/error", http.StatusSeeOther)
+            return
+        }
+        err = t.Execute(w, struct {
+            Username string
+            Posts    interface{}
+        }{
+            cookie.Value,
+            response.Data,
+        })
+        if err != nil {
+            LOG[ERROR].Println("HTML Template Execution Error", err)
+            http.Redirect(w, r, "/error", http.StatusSeeOther)
+        }
+    } else if r.Method == http.MethodPost {
+        LOG[INFO].Println("Executing Post")
+        conn, err := net.Dial("tcp","127.0.0.1:5000")
+        if err != nil {
+            LOG[ERROR].Println(StatusText(StatusConnectionError))
+            http.Redirect(w, r, "/error", http.StatusSeeOther)
+            return
+        }
+        defer conn.Close()
+
+        r.ParseForm()
+        LOG[INFO].Println("Form Values: Post", r.PostFormValue("post"))
+        encoder := gob.NewEncoder(conn)
+        err = encoder.Encode(CommandRequest{CommandChirp, struct{
+            Username string
+            Post     string
+        }{
+            cookie.Value,
+            r.PostFormValue("post"),
+        }})
+        if err != nil {
+            LOG[ERROR].Println(StatusText(StatusEncodeError), err)
+            http.Redirect(w, r, "/error", http.StatusSeeOther)
+            return
+        }
+
+        var response CommandResponse
+        decoder := gob.NewDecoder(conn)
+        err = decoder.Decode(&response)
+        if err != nil {
+            LOG[ERROR].Println(StatusText(StatusDecodeError))
+            http.Redirect(w,r, "/error", http.StatusSeeOther)
+            return
+        }
+
+        if !response.Success {
+            http.Redirect(w, r, "/error", http.StatusSeeOther)
+        }
+        http.Redirect(w, r, "/home", http.StatusSeeOther)
+        LOG[INFO].Println("Post Successfully Submitted")
     }
 }
 
@@ -267,7 +305,7 @@ func errorPage(w http.ResponseWriter, r *http.Request) {
 
 // searches for a user, provides user info if the user did not search for him/herself
 // provides a link to follow/unfollow based on current follow status
-func searchResponse(w http.ResponseWriter, r *http.Request) {
+func searchResult(w http.ResponseWriter, r *http.Request) {
     clearCache(w)
     exists, cookie := getCookie(r)
     if !exists {
@@ -324,7 +362,7 @@ func searchResponse(w http.ResponseWriter, r *http.Request) {
             return
         }
 
-        t, err := template.ParseFiles("../../web/searchResult.html")
+        t, err := template.ParseFiles("../../web/search-result.html")
         if err != nil {
             LOG[ERROR].Println("HTML Template Error", err)
             http.Redirect(w, r, "/error", http.StatusSeeOther)
@@ -335,21 +373,7 @@ func searchResponse(w http.ResponseWriter, r *http.Request) {
             LOG[ERROR].Println("HTML Template Execution Error", err)
             http.Redirect(w, r, "/error", http.StatusSeeOther)
         }
-    }
-}
-
-// the current user (determined by the cookie) will add a new user to their followed list
-// based on form value, if follow fails redirect to the error page
-// NOTE: follow and unfollow can now be combined and part of search response
-func follow(w http.ResponseWriter, r *http.Request) {
-    clearCache(w)
-    exists, cookie := getCookie(r)
-    if !exists {
-        http.Redirect(w, r, "/welcome", http.StatusSeeOther)
-        return
-    }
-
-    if r.Method == http.MethodPost {
+    } else if r.Method == http.MethodPost {
         LOG[INFO].Println("Executing Follow")
         conn, err := net.Dial("tcp","127.0.0.1:5000")
         if err != nil {
@@ -388,109 +412,6 @@ func follow(w http.ResponseWriter, r *http.Request) {
         }
         LOG[INFO].Println("Follow Successful")
         http.Redirect(w, r, "/home", http.StatusSeeOther)
-    }
-}
-
-// reverse logic of follow
-func unfollow(w http.ResponseWriter, r *http.Request) {
-    clearCache(w)
-    exists, cookie := getCookie(r)
-    if !exists {
-        http.Redirect(w, r, "/welcome", http.StatusSeeOther)
-        return
-    }
-
-    if r.Method == http.MethodPost {
-        LOG[INFO].Println("Executing Unfollow")
-        conn, err := net.Dial("tcp","127.0.0.1:5000")
-        if err != nil {
-            LOG[ERROR].Println(StatusText(StatusConnectionError), err)
-            http.Redirect(w, r, "/error", http.StatusSeeOther)
-            return
-        }
-        defer conn.Close()
-
-        r.ParseForm()
-        encoder := gob.NewEncoder(conn)
-        err = encoder.Encode(CommandRequest{CommandUnfollow, struct{
-            Username1 string
-            Username2 string
-        }{
-            cookie.Value,
-            r.PostFormValue("username"),
-        }})
-        if err != nil {
-            LOG[ERROR].Println(StatusText(StatusEncodeError), err)
-            http.Redirect(w, r, "/error", http.StatusSeeOther)
-            return
-        }
-
-        var response CommandResponse
-        decoder := gob.NewDecoder(conn)
-        err = decoder.Decode(&response)
-        if err != nil {
-            LOG[ERROR].Println(StatusText(StatusDecodeError))
-            http.Redirect(w, r, "/error", http.StatusSeeOther)
-            return
-        }
-        if !response.Success {
-            http.Redirect(w, r, "/error", http.StatusSeeOther)
-            return
-        }
-        LOG[INFO].Println("Logout Successful")
-        http.Redirect(w, r, "/error", http.StatusSeeOther)
-    }
-
-}
-
-// reads a post from form input, then appends it to the slice of posts per user
-func submitPost(w http.ResponseWriter, r *http.Request) {
-    clearCache(w)
-    exists, cookie := getCookie(r)
-    if !exists {  // modify (also include if there is a cookie that no username is associated with
-        http.Redirect(w, r, "/welcome", http.StatusSeeOther)
-        return
-    }
-    if r.Method == http.MethodPost {
-        LOG[INFO].Println("Executing Post")
-        conn, err := net.Dial("tcp","127.0.0.1:5000")
-        if err != nil {
-            LOG[ERROR].Println(StatusText(StatusConnectionError))
-            http.Redirect(w, r, "/error", http.StatusSeeOther)
-            return
-        }
-        defer conn.Close()
-
-        r.ParseForm()
-        LOG[INFO].Println("Form Values: Post", r.PostFormValue("post"))
-        encoder := gob.NewEncoder(conn)
-        err = encoder.Encode(CommandRequest{CommandChirp, struct{
-            Username string
-            Post     string
-        }{
-            cookie.Value,
-            r.PostFormValue("post"),
-        }})
-        if err != nil {
-            LOG[ERROR].Println(StatusText(StatusEncodeError), err)
-            http.Redirect(w, r, "/error", http.StatusSeeOther)
-            return
-        }
-
-        var response CommandResponse
-        decoder := gob.NewDecoder(conn)
-        err = decoder.Decode(&response)
-        if err != nil {
-            LOG[ERROR].Println(StatusText(StatusDecodeError))
-            http.Redirect(w,r, "/error", http.StatusSeeOther)
-            return
-        }
-
-        if !response.Success {
-            http.Redirect(w, r, "/error", http.StatusSeeOther)
-        }
-        http.Redirect(w, r, "/home", http.StatusSeeOther)
-        LOG[INFO].Println("Post Successfully Submitted")
     }
 }
 
