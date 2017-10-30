@@ -246,9 +246,9 @@ func search(serverEncoder *gob.Encoder, request CommandRequest) {
     } else {
         LOG[INFO].Println("User", user1.Username, "search", user2.Username)
         if user1.IsFollowing(user2) {
-            serverEncoder.Encode(CommandResponse{true, StatusUserFollowed, "unfollow"})
+            serverEncoder.Encode(CommandResponse{true, StatusUserFollowed, "Unfollow"})
         } else {
-            serverEncoder.Encode(CommandResponse{true, StatusUserNotFollowed, "follow"})
+            serverEncoder.Encode(CommandResponse{true, StatusUserNotFollowed, "Follow"})
         }
     }
 }
