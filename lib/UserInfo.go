@@ -3,13 +3,14 @@ package lib
 import (
     "time"
     "container/heap"
+    "fmt"
 )
 
 // Struct to hold all necessary user info
 type UserInfo struct {
     Username   string
     Password   string
-    Following  map[string]*UserInfo
+    Following  map[string]bool
     FollowedBy []string
     Posts      []Post
 }
@@ -19,7 +20,7 @@ func NewUserInfo(username, password string) *UserInfo {
     newUser := new(UserInfo)
     newUser.Username = username
     newUser.Password = password
-    newUser.Following = make(map[string]*UserInfo)
+    newUser.Following = make(map[string]bool)
     return newUser
 }
 
@@ -76,33 +77,36 @@ func (u *UserInfo) CheckPass(password string) bool {
 
 // Current UserInfo follows the UserInfo passed in parameter
 func (user *UserInfo) Follow(newFollow *UserInfo) bool {
-    if newFollow == nil || user.Following[newFollow.Username] != nil {
+    if newFollow == nil || user.Following[newFollow.Username] {
         return false
     }
     newFollow.FollowedBy = append(newFollow.FollowedBy, user.Username)
-    user.Following[newFollow.Username] = newFollow
+    user.Following[newFollow.Username] = true
     return true
 }
 
 // Current UserInfo unfollows the UserInfo passed in parameter
 func (user *UserInfo) UnFollow(oldFollow *UserInfo) bool {
-    if oldFollow == nil || user.Following[oldFollow.Username] == nil {
+    if oldFollow == nil || !user.Following[oldFollow.Username] {
         return false
     }
     for i := range oldFollow.FollowedBy {
         if oldFollow.FollowedBy[i] == user.Username {
+            fmt.Println("before remove", oldFollow.Username, oldFollow.FollowedBy)
             oldFollow.FollowedBy = append(oldFollow.FollowedBy[:i], oldFollow.FollowedBy[i+1:]...)
+            fmt.Println("after remove", oldFollow.Username, oldFollow.FollowedBy)
             break
         }
     }
+    fmt.Println("after break", oldFollow.FollowedBy)
     delete(user.Following, oldFollow.Username)
     return true
 }
 
 // Checks if current UserInfo is following the UserInfo passed in parameter
 func (user *UserInfo) IsFollowing(other *UserInfo) bool {
-    for i := range user.Following {
-        if user.Following[i] == other {
+    for item := range user.Following {
+        if item == other.Username {
             return true
         }
     }
@@ -118,7 +122,7 @@ func (user *UserInfo) WritePost(msg string){
 
 // Creates a PriorityQueue implemented with a heap to pull all of the posts and return a slice with
 // the posts in order (includes the current user's posts)
-func (user *UserInfo) GetAllChirps() []Post {
+func (user *UserInfo) GetAllChirps(USERS map[string]*UserInfo) []Post {
     var result = []Post{}
 
     var allChirps PriorityQueue
@@ -126,11 +130,9 @@ func (user *UserInfo) GetAllChirps() []Post {
     for i := range user.Posts {
         heap.Push(&allChirps, &(user.Posts[i]))  // uses the Push method defined above
     }
-    for _, followed := range user.Following {
-        if followed != nil {
-            for i := range followed.Posts {
-                heap.Push(&allChirps, &(followed.Posts[i]))  // uses the Push method defined above
-            }
+    for followed := range user.Following {
+        for i := range USERS[followed].Posts {
+            heap.Push(&allChirps, &(USERS[followed].Posts[i]))  // uses the Push method defined above
         }
     }
     for allChirps.Len() > 0 {  // uses the Len method defined above

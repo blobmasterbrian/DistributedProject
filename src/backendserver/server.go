@@ -152,6 +152,10 @@ func deleteAccount(serverEncoder *gob.Encoder, request CommandRequest) {
     }
     for _, otherUser := range user.FollowedBy {
         USERS[otherUser].UnFollow(user)
+        writeUser(USERS[otherUser])
+    }
+    for k := range user.Following {
+        user.UnFollow(USERS[k])
     }
     os.Remove("../../data/" + user.Username)
     delete(USERS, user.Username)
@@ -201,6 +205,7 @@ func follow(serverEncoder *gob.Encoder, request CommandRequest) {
         return
     }
     writeUser(user)
+    writeUser(user2)
 
     serverEncoder.Encode(CommandResponse{true, StatusAccepted, nil})
 }
@@ -226,6 +231,7 @@ func unfollow(serverEncoder *gob.Encoder, request CommandRequest) {
         return
     }
     writeUser(user)
+    writeUser(user2)
 
     serverEncoder.Encode(CommandResponse{true, StatusAccepted, nil})
 }
@@ -289,7 +295,7 @@ func getChrips(serverEncoder *gob.Encoder, request CommandRequest) {
         serverEncoder.Encode(CommandResponse{false, StatusUserNotFound, nil})
         return
     }
-    serverEncoder.Encode(CommandResponse{true, StatusAccepted, user.GetAllChirps()})
+    serverEncoder.Encode(CommandResponse{true, StatusAccepted, user.GetAllChirps(USERS)})
 }
 
 func writeUser(user *UserInfo) {
