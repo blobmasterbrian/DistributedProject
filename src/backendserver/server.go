@@ -192,6 +192,21 @@ func follow(serverEncoder *gob.Encoder, request CommandRequest) {
         serverEncoder.Encode(CommandResponse{false, StatusInternalError, nil})
         return
     }
+    file, err := os.Create("../../data/" + user.Username)
+    if err != nil {
+        LOG[ERROR].Println("Unable to create file ", err)
+        return
+    }
+    defer file.Close()
+
+    encoder := gob.NewEncoder(file)
+    err = encoder.Encode(user)
+    if err != nil {
+        LOG[ERROR].Println(StatusText(StatusEncodeError), err)
+        serverEncoder.Encode(CommandResponse{false, StatusEncodeError, nil})
+        return
+    }
+
     serverEncoder.Encode(CommandResponse{true, StatusAccepted, nil})
 }
 
@@ -215,6 +230,21 @@ func unfollow(serverEncoder *gob.Encoder, request CommandRequest) {
         serverEncoder.Encode(CommandResponse{false, StatusInternalError, nil})
         return
     }
+    file, err := os.Create("../../data/" + user.Username)
+    if err != nil {
+        LOG[ERROR].Println("Unable to create file ", err)
+        return
+    }
+    defer file.Close()
+
+    encoder := gob.NewEncoder(file)
+    err = encoder.Encode(user)
+    if err != nil {
+        LOG[ERROR].Println(StatusText(StatusEncodeError), err)
+        serverEncoder.Encode(CommandResponse{false, StatusEncodeError, nil})
+        return
+    }
+
     serverEncoder.Encode(CommandResponse{true, StatusAccepted, nil})
 }
 
