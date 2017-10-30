@@ -154,8 +154,9 @@ func deleteAccount(serverEncoder *gob.Encoder, request CommandRequest) {
         USERS[otherUser].UnFollow(user)
         writeUser(USERS[otherUser])
     }
-    for k := range user.Following {
-        user.UnFollow(USERS[k])
+    for key := range user.Following {
+        user.UnFollow(USERS[key])
+        writeUser(USERS[key])
     }
     os.Remove("../../data/" + user.Username)
     delete(USERS, user.Username)

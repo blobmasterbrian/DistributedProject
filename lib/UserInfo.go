@@ -3,7 +3,6 @@ package lib
 import (
     "time"
     "container/heap"
-    "fmt"
 )
 
 // Struct to hold all necessary user info
@@ -92,13 +91,10 @@ func (user *UserInfo) UnFollow(oldFollow *UserInfo) bool {
     }
     for i := range oldFollow.FollowedBy {
         if oldFollow.FollowedBy[i] == user.Username {
-            fmt.Println("before remove", oldFollow.Username, oldFollow.FollowedBy)
             oldFollow.FollowedBy = append(oldFollow.FollowedBy[:i], oldFollow.FollowedBy[i+1:]...)
-            fmt.Println("after remove", oldFollow.Username, oldFollow.FollowedBy)
             break
         }
     }
-    fmt.Println("after break", oldFollow.FollowedBy)
     delete(user.Following, oldFollow.Username)
     return true
 }
