@@ -112,7 +112,7 @@ func (user *UserInfo) IsFollowing(other *UserInfo) bool {
 // Deletes account of the calling UserInfo
 func (user *UserInfo) deleteAccount() {
     for len(user.FollowedBy) > 0 {
-        user.FolloweBy[0].UnFollow(user)
+        user.FollowedBy[0].UnFollow(user)
     }
 }
 

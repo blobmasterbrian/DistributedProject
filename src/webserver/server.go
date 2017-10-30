@@ -16,7 +16,7 @@ const LOGIN_COOKIE = "loginCookie"  // Cookie to keep users logged in
 var LOG map[int]*log.Logger
 
 func main() {
-    LOG = InitLog("../../log/frontend.txt")
+    LOG = InitLog("../../log/frontend.txt")   // create logger map associated with different log codes
     http.HandleFunc("/", welcomeRedirect)   // function for server address page
     http.HandleFunc("/welcome", welcome)    // function for welcome page (main page for not logged in users)
     http.HandleFunc("/signup", signup)      // function for signup page
@@ -30,9 +30,15 @@ func main() {
     http.HandleFunc("/submit-post", submitPost)          // function for post submission
     http.HandleFunc("/search-response", searchResponse)  // function for search submission
     http.HandleFunc("/delete-account", deleteAccount)    // function for account deletion submission
+
+    gob.Register([]Post{})
+    gob.Register(struct{Username, Password string}{})
+    gob.Register(struct{Username1, Username2 string}{})
+    gob.Register(struct{Searcher, Target string}{})
+    gob.Register(struct{Username, Post string}{})
+
     http.ListenAndServe(":8080", nil)
 }
-
 
 func welcomeRedirect(w http.ResponseWriter, r *http.Request) {
     http.Redirect(w, r, "/welcome", http.StatusSeeOther)  // URL always displays welcome
@@ -143,7 +149,6 @@ func signup(w http.ResponseWriter, r *http.Request) {
 
         passhash := sha512.Sum512([]byte(r.PostFormValue("password")))
         LOG[INFO].Println("Hex Encoded Passhash", hex.EncodeToString(passhash[:]))
-        gob.Register(struct{Username, Password string}{})  // effects of Registering each time?
         encoder := gob.NewEncoder(conn)
         err = encoder.Encode(CommandRequest{CommandSignup, struct{
             Username string
@@ -203,7 +208,6 @@ func login(w http.ResponseWriter, r *http.Request) {
             r.PostFormValue("password"))
         passhash := sha512.Sum512([]byte(r.PostFormValue("password")))
         LOG[INFO].Println("Hex Encoded Passhash:", hex.EncodeToString(passhash[:]))
-        gob.Register(struct {Username, Password string}{})
         encoder := gob.NewEncoder(conn)
         err = encoder.Encode(CommandRequest{CommandLogin, struct{
             Username string
@@ -287,7 +291,6 @@ func searchResponse(w http.ResponseWriter, r *http.Request) {
             http.Redirect(w, r, "/home", http.StatusSeeOther)
             return
         }
-        gob.Register(struct{Searcher, Target string}{})
         encoder := gob.NewEncoder(conn)
         err = encoder.Encode(CommandRequest{CommandSearch, struct{
             Searcher string
@@ -358,7 +361,6 @@ func follow(w http.ResponseWriter, r *http.Request) {
 
         r.ParseForm()
         LOG[INFO].Println("Form Values: Username", r.PostFormValue("username"))
-        gob.Register(struct{Username1, Username2 string}{})
         encoder := gob.NewEncoder(conn)
         err = encoder.Encode(CommandRequest{CommandFollow, struct{
             Username1 string
@@ -409,7 +411,6 @@ func unfollow(w http.ResponseWriter, r *http.Request) {
         defer conn.Close()
 
         r.ParseForm()
-        gob.Register(struct{Username1, Username2 string}{})
         encoder := gob.NewEncoder(conn)
         err = encoder.Encode(CommandRequest{CommandUnfollow, struct{
             Username1 string
@@ -462,7 +463,6 @@ func submitPost(w http.ResponseWriter, r *http.Request) {
 
         r.ParseForm()
         LOG[INFO].Println("Form Values: Post", r.PostFormValue("post"))
-        gob.Register(struct{Username, Post string}{})
         encoder := gob.NewEncoder(conn)
         err = encoder.Encode(CommandRequest{CommandChirp, struct{
             Username string
@@ -507,7 +507,6 @@ func deleteAccount(w http.ResponseWriter, r *http.Request) {
     }
     defer conn.Close()
 
-    // assuming gob.Register(string{}) string type already registered/implemented because it does not allow it
     encoder := gob.NewEncoder(conn)
     err = encoder.Encode(CommandRequest{CommandDeleteAccount,cookie.Value})
     if err != nil {
