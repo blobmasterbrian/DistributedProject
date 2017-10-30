@@ -21,6 +21,11 @@ func main() {
         LOG[ERROR].Println("Error starting server ", err)
         return
     }
+    gob.Register([]Post{})
+    gob.Register(struct{Username, Password string}{})
+    gob.Register(struct{Username1, Username2 string}{})
+    gob.Register(struct{Searcher, Target string}{})
+    gob.Register(struct{Username, Post string}{})
     for {
         conn, err := server.Accept()
         if err != nil {
@@ -29,7 +34,6 @@ func main() {
         }
 
         var request CommandRequest
-        gob.Register(struct {Username, Password string}{})
         decoder := gob.NewDecoder(conn)
         decoder.Decode(&request)
         if err != nil {
@@ -280,7 +284,6 @@ func getChrips(serverEncoder *gob.Encoder, request CommandRequest) {
         return
     }
 
-    gob.Register([]Post{})  // register post slice as implementing interface
     user, ok := USERS[username]
     if !ok {
         LOG[WARNING].Println(StatusText(StatusUserNotFound), username)
