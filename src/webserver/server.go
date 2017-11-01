@@ -41,10 +41,13 @@ func main() {
     http.ListenAndServe(":8080", nil)
 }
 
+// Simple redirect function to make the URL always display welcome
 func welcomeRedirect(w http.ResponseWriter, r *http.Request) {
     http.Redirect(w, r, "/welcome", http.StatusSeeOther)  // URL always displays welcome
 }
 
+// Simple Welcome page for users that are not signed in
+// Redirects to home if logged in
 func welcome(w http.ResponseWriter, r *http.Request) {
     LOG[INFO].Println("Welcome Page")
     clearCache(w)
@@ -56,6 +59,11 @@ func welcome(w http.ResponseWriter, r *http.Request) {
     http.ServeFile(w, r, "../../web/welcome.html")
 }
 
+/*
+Homepage function for users are the homepage. Checks cookie if they're logged in otherwise redirects to welcome
+Returns all the chirps from all users the person follows in a get and sends to html to display
+Post method sends a chirp to the system and redirects to itself to update the displayed chirps
+ */
 func home(w http.ResponseWriter, r *http.Request) {
     LOG[INFO].Println("Home Page")
     clearCache(w)
@@ -124,6 +132,8 @@ func home(w http.ResponseWriter, r *http.Request) {
     }
 }
 
+// allows a user to signup
+// post sends the signup credentials to the backend for verification and redirects accordingly if the signup was accepted
 func signup(w http.ResponseWriter, r *http.Request) {
     clearCache(w)
     exists, _ := getCookie(r, LOGIN_COOKIE)
