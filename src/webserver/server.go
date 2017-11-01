@@ -183,6 +183,9 @@ func signup(w http.ResponseWriter, r *http.Request) {
     }
 }
 
+//login gets the username and password from the forms, hashes the username
+//and sends the username pass combo to the backend for validation
+//if valid redirects to home
 func login(w http.ResponseWriter, r *http.Request) {
     clearCache(w)
     exists, _ := getCookie(r, LOGIN_COOKIE)
@@ -223,6 +226,8 @@ func login(w http.ResponseWriter, r *http.Request) {
     }
 }
 
+
+//Logout removes the user cookie, it does not send any request to the backend
 func logout(w http.ResponseWriter, r *http.Request) {
     LOG[INFO].Println("Executing Logout")
     clearCache(w)
@@ -234,6 +239,8 @@ func logout(w http.ResponseWriter, r *http.Request) {
     http.Redirect(w, r, "/welcome", http.StatusSeeOther)
 }
 
+//error page gets the current user cookie and the error cookie
+//provides error and username info to error page template html
 func errorPage(w http.ResponseWriter, r *http.Request) {
     clearCache(w)
     t, err := template.ParseFiles("../../web/error.html")
@@ -344,7 +351,7 @@ func searchResult(w http.ResponseWriter, r *http.Request) {
     }
 }
 
-// change deletion to not store nil values
+// delete account removes the user info cookie and sends a delete request to the backend
 func deleteAccount(w http.ResponseWriter, r *http.Request) {
     clearCache(w)
     cookie, _ := r.Cookie(LOGIN_COOKIE)
@@ -355,7 +362,8 @@ func deleteAccount(w http.ResponseWriter, r *http.Request) {
     http.Redirect(w, r, "/welcome", http.StatusSeeOther)
 }
 
-func getCookie(r *http.Request, cookiename string) (LoggedIn bool, Cookie *http.Cookie) {
+//getCookie gets a current cookie given the cookie name and returns if it exists
+func getCookie(r *http.Request, cookiename string) (bool, *http.Cookie) {
     // ignoring error value because it is likely that the cookie might not exist here
     cookie, _ := r.Cookie(cookiename)
     if cookie == nil {
@@ -364,6 +372,8 @@ func getCookie(r *http.Request, cookiename string) (LoggedIn bool, Cookie *http.
     return true, cookie
 }
 
+//gen cookie takes a cookie name and value and creates a coorisponding cookie
+//it returns the address of the cookie with a 24 hour expiration
 func genCookie(cookiename, value string) *http.Cookie {
     return &http.Cookie{
         Name:     cookiename,
@@ -372,12 +382,15 @@ func genCookie(cookiename, value string) *http.Cookie {
     }
 }
 
+//clear cache modifies the http header to guarantee no cache is stored
 func clearCache(w http.ResponseWriter) {
     w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
     w.Header().Set("Pragma", "no-cache")
     w.Header().Set("Expires", "0")
 }
 
+//Send command takes in a formatted command request and sends it to the backend
+//it then reads the response and returns it
 func sendCommand(command CommandRequest) *CommandResponse {
     conn, err := net.Dial("tcp", "127.0.0.1:5000")
     if err != nil {
