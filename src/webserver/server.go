@@ -65,27 +65,8 @@ func home(w http.ResponseWriter, r *http.Request) {
     }
 
     if r.Method == http.MethodGet {
-        conn, err := net.Dial("tcp", "127.0.0.1:5000")
-        if err != nil {
-            LOG[ERROR].Println(StatusText(StatusConnectionError), err)
-            http.Redirect(w, r, "/error", http.StatusSeeOther)
-            return
-        }
-        defer conn.Close()
-
-        encoder := gob.NewEncoder(conn)
-        err = encoder.Encode(CommandRequest{CommandGetChirps, cookie.Value})
-        if err != nil {
-            LOG[ERROR].Println(StatusText(StatusEncodeError), err)
-            http.Redirect(w, r, "/error", http.StatusSeeOther)
-            return
-        }
-
-        var response CommandResponse
-        decoder := gob.NewDecoder(conn)
-        err = decoder.Decode(&response)
-        if err != nil {
-            LOG[ERROR].Println(StatusText(StatusDecodeError), err)
+        response := sendCommand(CommandRequest{CommandGetChirps, cookie.Value})
+        if response == nil {
             http.Redirect(w, r, "/error", http.StatusSeeOther)
             return
         }
@@ -114,36 +95,17 @@ func home(w http.ResponseWriter, r *http.Request) {
         }
     } else if r.Method == http.MethodPost {
         LOG[INFO].Println("Executing Post")
-        conn, err := net.Dial("tcp","127.0.0.1:5000")
-        if err != nil {
-            LOG[ERROR].Println(StatusText(StatusConnectionError))
-            http.Redirect(w, r, "/error", http.StatusSeeOther)
-            return
-        }
-        defer conn.Close()
-
         r.ParseForm()
         LOG[INFO].Println("Form Values: Post", r.PostFormValue("post"))
-        encoder := gob.NewEncoder(conn)
-        err = encoder.Encode(CommandRequest{CommandChirp, struct{
+        response := sendCommand(CommandRequest{CommandChirp, struct{
             Username string
             Post     string
         }{
             cookie.Value,
             r.PostFormValue("post"),
         }})
-        if err != nil {
-            LOG[ERROR].Println(StatusText(StatusEncodeError), err)
+        if response == nil {
             http.Redirect(w, r, "/error", http.StatusSeeOther)
-            return
-        }
-
-        var response CommandResponse
-        decoder := gob.NewDecoder(conn)
-        err = decoder.Decode(&response)
-        if err != nil {
-            LOG[ERROR].Println(StatusText(StatusDecodeError))
-            http.Redirect(w,r, "/error", http.StatusSeeOther)
             return
         }
 
@@ -168,21 +130,14 @@ func signup(w http.ResponseWriter, r *http.Request) {
         http.ServeFile(w, r, "../../web/signup.html")
     } else if r.Method == http.MethodPost {
         LOG[INFO].Println("Executing Signup")
-        conn, err := net.Dial("tcp","127.0.0.1:5000")
-        if err != nil {
-            LOG[ERROR].Println(StatusText(StatusConnectionError), err)
-            http.Redirect(w,r, "/error", http.StatusSeeOther)
-            return
-        }
-        defer conn.Close()
 
-        err = r.ParseForm()
+        err := r.ParseForm()
         if err != nil {
             LOG[ERROR].Println("Form Error", err)
             http.Redirect(w, r, "/error", http.StatusSeeOther)
         }
-        LOG[INFO].Println("Form Values: Username", r.PostFormValue("username") + ", Password",
-            r.PostFormValue("password") + ",", "Confirm", r.PostFormValue("confirm"))
+
+        LOG[INFO].Println("Form Values: Username", r.PostFormValue("username"))
         if r.PostFormValue("password") != r.PostFormValue("confirm") {
             LOG[INFO].Println("Password Mismatch")
             http.Redirect(w, r, "/signup", http.StatusSeeOther)
@@ -191,25 +146,14 @@ func signup(w http.ResponseWriter, r *http.Request) {
 
         passhash := sha512.Sum512([]byte(r.PostFormValue("password")))
         LOG[INFO].Println("Hex Encoded Passhash", hex.EncodeToString(passhash[:]))
-        encoder := gob.NewEncoder(conn)
-        err = encoder.Encode(CommandRequest{CommandSignup, struct{
+        response := sendCommand(CommandRequest{CommandSignup, struct{
             Username string
             Password string
         }{
             r.PostFormValue("username"),
             hex.EncodeToString(passhash[:]),
         }})
-        if err != nil {
-            LOG[ERROR].Println(StatusText(StatusEncodeError), err)
-            http.Redirect(w, r, "/error", http.StatusSeeOther)
-            return
-        }
-
-        var response CommandResponse
-        decoder := gob.NewDecoder(conn)
-        err = decoder.Decode(&response)
-        if err != nil {
-            LOG[ERROR].Println(StatusText(StatusDecodeError), err)
+        if response == nil {
             http.Redirect(w, r, "/error", http.StatusSeeOther)
             return
         }
@@ -237,38 +181,18 @@ func login(w http.ResponseWriter, r *http.Request) {
         http.ServeFile(w, r, "../../web/login.html")
     } else if r.Method == http.MethodPost {
         LOG[INFO].Println("Executing Login")
-        conn, err := net.Dial("tcp","127.0.0.1:5000")
-        if err != nil {
-            LOG[ERROR].Println(StatusText(StatusConnectionError), err)
-            http.Redirect(w, r, "/error", http.StatusSeeOther)
-            return
-        }
-        defer conn.Close()
-
         r.ParseForm()
-        LOG[INFO].Println("Form Values: Username", r.PostFormValue("username") + ", Password",
-            r.PostFormValue("password"))
+        LOG[INFO].Println("Form Values: Username", r.PostFormValue("username"))
         passhash := sha512.Sum512([]byte(r.PostFormValue("password")))
         LOG[INFO].Println("Hex Encoded Passhash:", hex.EncodeToString(passhash[:]))
-        encoder := gob.NewEncoder(conn)
-        err = encoder.Encode(CommandRequest{CommandLogin, struct{
+        response := sendCommand(CommandRequest{CommandLogin, struct{
             Username string
             Password string
         }{
             r.PostFormValue("username"),
             hex.EncodeToString(passhash[:]),
         }})
-        if err != nil {
-            LOG[ERROR].Println(StatusText(StatusEncodeError), err)
-            http.Redirect(w, r, "/error", http.StatusSeeOther)
-            return
-        }
-
-        var response CommandResponse
-        decoder := gob.NewDecoder(conn)
-        err = decoder.Decode(&response)
-        if err != nil {
-            LOG[ERROR].Println(StatusText(StatusDecodeError), err)
+        if response == nil {
             http.Redirect(w, r, "/error", http.StatusSeeOther)
             return
         }
@@ -316,14 +240,6 @@ func searchResult(w http.ResponseWriter, r *http.Request) {
         http.Redirect(w, r, "/welcome", http.StatusSeeOther)
         return
     }
-    conn, err := net.Dial("tcp","127.0.0.1:5000")
-    if err != nil {
-        LOG[ERROR].Println(StatusText(StatusConnectionError), err)
-        http.Redirect(w, r, "/error", http.StatusSeeOther)
-        return
-    }
-    defer conn.Close()
-
     r.ParseForm()
     LOG[INFO].Println("Form Values: Username", r.PostFormValue("username"))
     if cookie.Value == r.PostFormValue("username") {
@@ -331,25 +247,14 @@ func searchResult(w http.ResponseWriter, r *http.Request) {
         http.Redirect(w, r, "/home", http.StatusSeeOther)
         return
     }
-    encoder := gob.NewEncoder(conn)
-    err = encoder.Encode(CommandRequest{CommandSearch, struct{
+    response := sendCommand(CommandRequest{CommandSearch, struct{
         Searcher string
         Target   string
     }{
         cookie.Value,
         r.FormValue("username"),
     }})
-    if err != nil {
-        LOG[ERROR].Println(StatusText(StatusEncodeError), err)
-        http.Redirect(w, r, "/error", http.StatusSeeOther)
-        return
-    }
-
-    var response CommandResponse
-    decoder := gob.NewDecoder(conn)
-    err = decoder.Decode(&response)
-    if err != nil {
-        LOG[ERROR].Println(StatusText(StatusDecodeError), err)
+    if response == nil {
         http.Redirect(w, r, "/error", http.StatusSeeOther)
         return
     }
@@ -379,19 +284,10 @@ func searchResult(w http.ResponseWriter, r *http.Request) {
         }
     } else if r.Method == http.MethodPost {
         LOG[INFO].Println("Executing Follow/Unfollow")
-        conn, err := net.Dial("tcp","127.0.0.1:5000")
-        if err != nil {
-            LOG[ERROR].Println(StatusText(StatusConnectionError), err)
-            http.Redirect(w, r, "/error", http.StatusSeeOther)
-            return
-        }
-        defer conn.Close()
-
-        r.ParseForm()
         LOG[INFO].Println("Form Values: Username", r.PostFormValue("username"))
-        encoder := gob.NewEncoder(conn)
+        r.ParseForm()
         if response.Data == "Follow" {
-            err = encoder.Encode(CommandRequest{CommandFollow, struct {
+            response = sendCommand(CommandRequest{CommandFollow, struct {
                 Username1 string
                 Username2 string
             }{
@@ -399,7 +295,7 @@ func searchResult(w http.ResponseWriter, r *http.Request) {
                 r.PostFormValue("username"),
             }})
         } else if response.Data == "Unfollow" {
-            err = encoder.Encode(CommandRequest{CommandUnfollow, struct {
+            response = sendCommand(CommandRequest{CommandUnfollow, struct {
                 Username1 string
                 Username2 string
             }{
@@ -407,20 +303,11 @@ func searchResult(w http.ResponseWriter, r *http.Request) {
                 r.PostFormValue("username"),
             }})
         }
-        if err != nil {
-            LOG[ERROR].Println(StatusText(StatusEncodeError), err)
+        if response == nil {
             http.Redirect(w, r, "/error", http.StatusSeeOther)
             return
         }
 
-        var response CommandResponse
-        decoder := gob.NewDecoder(conn)
-        err = decoder.Decode(&response)
-        if err != nil {
-            LOG[ERROR].Println(StatusText(StatusDecodeError))
-            http.Redirect(w, r, "/error", http.StatusSeeOther)
-            return
-        }
         if !response.Success {
             http.Redirect(w, r, "/error", http.StatusSeeOther)  // change
         }
@@ -433,23 +320,7 @@ func searchResult(w http.ResponseWriter, r *http.Request) {
 func deleteAccount(w http.ResponseWriter, r *http.Request) {
     clearCache(w)
     cookie, _ := r.Cookie(LOGIN_COOKIE)
-
-    conn, err := net.Dial("tcp","127.0.0.1:5000")
-    if err != nil {
-        LOG[ERROR].Println(StatusText(StatusConnectionError))
-        http.Redirect(w,r, "/error", http.StatusSeeOther)
-        return
-    }
-    defer conn.Close()
-
-    encoder := gob.NewEncoder(conn)
-    err = encoder.Encode(CommandRequest{CommandDeleteAccount,cookie.Value})
-    if err != nil {
-        LOG[ERROR].Println(StatusText(StatusEncodeError), err)
-        http.Redirect(w, r, "/error", http.StatusSeeOther)
-        return
-    }
-
+    sendCommand(CommandRequest{CommandDeleteAccount, cookie.Value})
     cookie.MaxAge = -1
     cookie.Expires = time.Now().Add(-1 * time.Hour)
     http.SetCookie(w, cookie)
@@ -477,4 +348,29 @@ func clearCache(w http.ResponseWriter) {
     w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
     w.Header().Set("Pragma", "no-cache")
     w.Header().Set("Expires", "0")
+}
+
+func sendCommand(command CommandRequest) *CommandResponse {
+    conn, err := net.Dial("tcp", "127.0.0.1:5000")
+    if err != nil {
+        LOG[ERROR].Println(StatusText(StatusConnectionError), err)
+        return nil
+    }
+    defer conn.Close()
+
+    encoder := gob.NewEncoder(conn)
+    err = encoder.Encode(command)
+    if err != nil {
+        LOG[ERROR].Println(StatusText(StatusEncodeError), err)
+        return nil
+    }
+
+    var response CommandResponse
+    decoder := gob.NewDecoder(conn)
+    err = decoder.Decode(&response)
+    if err != nil {
+        LOG[ERROR].Println(StatusText(StatusDecodeError), err)
+        return nil
+    }
+    return &response
 }
