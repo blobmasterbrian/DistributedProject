@@ -335,7 +335,7 @@ func searchResult(w http.ResponseWriter, r *http.Request) {
         }
 
         if !response.Success {
-            http.SetCookie(w, genCookie(ERROR_COOKIE, response.Status))
+            http.SetCookie(w, genCookie(ERROR_COOKIE, StatusText(response.Status)))
             http.Redirect(w, r, "/error", http.StatusSeeOther)
             return
         }
