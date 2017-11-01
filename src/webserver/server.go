@@ -14,6 +14,7 @@ import(
 )
 
 const LOGIN_COOKIE = "loginCookie"  // Cookie to keep users logged in
+const ERROR_COOKIE = "errorCookie"   // Cookie to retain error information for error length
 var LOG map[int]*log.Logger
 
 func main() {
@@ -47,7 +48,7 @@ func welcomeRedirect(w http.ResponseWriter, r *http.Request) {
 func welcome(w http.ResponseWriter, r *http.Request) {
     LOG[INFO].Println("Welcome Page")
     clearCache(w)
-    exists, _ := getCookie(r)
+    exists, _ := getCookie(r, LOGIN_COOKIE)
     if exists {
         http.Redirect(w, r, "/home", http.StatusSeeOther)  // redirect to home if the user is already logged in
         return
@@ -58,7 +59,7 @@ func welcome(w http.ResponseWriter, r *http.Request) {
 func home(w http.ResponseWriter, r *http.Request) {
     LOG[INFO].Println("Home Page")
     clearCache(w)
-    exists, cookie := getCookie(r)
+    exists, cookie := getCookie(r, LOGIN_COOKIE)
     if !exists {
         http.Redirect(w, r, "/welcome", http.StatusSeeOther)
         return
@@ -67,11 +68,13 @@ func home(w http.ResponseWriter, r *http.Request) {
     if r.Method == http.MethodGet {
         response := sendCommand(CommandRequest{CommandGetChirps, cookie.Value})
         if response == nil {
+            http.SetCookie(w, genCookie(ERROR_COOKIE, "Send Command Error"))
             http.Redirect(w, r, "/error", http.StatusSeeOther)
             return
         }
         if !response.Success {
             LOG[WARNING].Println(StatusText(response.Status))
+            http.SetCookie(w, genCookie(ERROR_COOKIE, StatusText(response.Status)))
             http.Redirect(w, r, "/error", http.StatusSeeOther)
             return
         }
@@ -79,6 +82,7 @@ func home(w http.ResponseWriter, r *http.Request) {
         t, err := template.ParseFiles("../../web/homepage.html")
         if err != nil {
             LOG[ERROR].Println("HTML Template Error", err)
+            http.SetCookie(w, genCookie(ERROR_COOKIE, "HTML Template Error"))
             http.Redirect(w, r, "/error", http.StatusSeeOther)
             return
         }
@@ -91,6 +95,7 @@ func home(w http.ResponseWriter, r *http.Request) {
         })
         if err != nil {
             LOG[ERROR].Println("HTML Template Execution Error", err)
+            http.SetCookie(w, genCookie(ERROR_COOKIE, "HTML Template Execution Error"))
             http.Redirect(w, r, "/error", http.StatusSeeOther)
         }
     } else if r.Method == http.MethodPost {
@@ -105,11 +110,13 @@ func home(w http.ResponseWriter, r *http.Request) {
             r.PostFormValue("post"),
         }})
         if response == nil {
+            http.SetCookie(w, genCookie(ERROR_COOKIE, "Send Command Error"))
             http.Redirect(w, r, "/error", http.StatusSeeOther)
             return
         }
 
         if !response.Success {
+            http.SetCookie(w, genCookie(ERROR_COOKIE, StatusText(response.Status)))
             http.Redirect(w, r, "/error", http.StatusSeeOther)
         }
         http.Redirect(w, r, "/home", http.StatusSeeOther)
@@ -119,7 +126,7 @@ func home(w http.ResponseWriter, r *http.Request) {
 
 func signup(w http.ResponseWriter, r *http.Request) {
     clearCache(w)
-    exists, _ := getCookie(r)
+    exists, _ := getCookie(r, LOGIN_COOKIE)
     if exists {
         http.Redirect(w, r, "/home", http.StatusSeeOther)
         return
@@ -134,6 +141,7 @@ func signup(w http.ResponseWriter, r *http.Request) {
         err := r.ParseForm()
         if err != nil {
             LOG[ERROR].Println("Form Error", err)
+            http.SetCookie(w, genCookie(ERROR_COOKIE, "Form Error"))
             http.Redirect(w, r, "/error", http.StatusSeeOther)
         }
 
@@ -159,6 +167,7 @@ func signup(w http.ResponseWriter, r *http.Request) {
             hex.EncodeToString(passhash[:]),
         }})
         if response == nil {
+            http.SetCookie(w, genCookie(ERROR_COOKIE, "Send Command Error"))
             http.Redirect(w, r, "/error", http.StatusSeeOther)
             return
         }
@@ -169,14 +178,14 @@ func signup(w http.ResponseWriter, r *http.Request) {
         }
 
         LOG[INFO].Println("Successfully Signed Up")
-        http.SetCookie(w, genCookie(r.PostFormValue("username")))
+        http.SetCookie(w, genCookie(LOGIN_COOKIE, r.PostFormValue("username")))
         http.Redirect(w, r, "/home", http.StatusSeeOther)
     }
 }
 
 func login(w http.ResponseWriter, r *http.Request) {
     clearCache(w)
-    exists, _ := getCookie(r)
+    exists, _ := getCookie(r, LOGIN_COOKIE)
     if exists {
         http.Redirect(w, r, "/home", http.StatusSeeOther)
         return
@@ -198,6 +207,7 @@ func login(w http.ResponseWriter, r *http.Request) {
             hex.EncodeToString(passhash[:]),
         }})
         if response == nil {
+            http.SetCookie(w, genCookie(ERROR_COOKIE, "Send Command Error"))
             http.Redirect(w, r, "/error", http.StatusSeeOther)
             return
         }
@@ -208,7 +218,7 @@ func login(w http.ResponseWriter, r *http.Request) {
         }
 
         LOG[INFO].Println("Successfully Logged In")
-        http.SetCookie(w, genCookie(r.PostFormValue("username")))
+        http.SetCookie(w, genCookie(LOGIN_COOKIE, r.PostFormValue("username")))
         http.Redirect(w, r, "/home", http.StatusSeeOther)
     }
 }
@@ -230,7 +240,13 @@ func errorPage(w http.ResponseWriter, r *http.Request) {
     if err != nil {
         LOG[ERROR].Println("HTML Template Error", err)
     }
-    err = t.Execute(w, struct{Username string; Error string}{Username: "Dave", Error: "Singularity"})
+    username := "Dave"
+    exists, loginCookie := getCookie(r, LOGIN_COOKIE)
+    if exists {
+        username = loginCookie.Value
+    }
+    _, ErrCookie := getCookie(r, ERROR_COOKIE)
+    err = t.Execute(w, struct{Username string; Error string}{Username: username, Error: ErrCookie.Value})
     if err != nil {
         LOG[ERROR].Println("HTML Template Execution Error", err)
     }
@@ -240,7 +256,7 @@ func errorPage(w http.ResponseWriter, r *http.Request) {
 // provides a link to follow/unfollow based on current follow status
 func searchResult(w http.ResponseWriter, r *http.Request) {
     clearCache(w)
-    exists, cookie := getCookie(r)
+    exists, cookie := getCookie(r, LOGIN_COOKIE)
     if !exists {
         http.Redirect(w, r, "/welcome", http.StatusSeeOther)
         return
@@ -260,6 +276,7 @@ func searchResult(w http.ResponseWriter, r *http.Request) {
         r.FormValue("username"),
     }})
     if response == nil {
+        http.SetCookie(w, genCookie(ERROR_COOKIE, "Send Command Error"))
         http.Redirect(w, r, "/error", http.StatusSeeOther)
         return
     }
@@ -269,6 +286,7 @@ func searchResult(w http.ResponseWriter, r *http.Request) {
             http.Redirect(w, r, "/home", http.StatusSeeOther)
         } else {
             LOG[ERROR].Println(StatusText(response.Status))
+            http.SetCookie(w, genCookie(ERROR_COOKIE, StatusText(response.Status)))
             http.Redirect(w, r, "/error", http.StatusSeeOther)
         }
         return
@@ -279,12 +297,14 @@ func searchResult(w http.ResponseWriter, r *http.Request) {
         t, err := template.ParseFiles("../../web/search-result.html")
         if err != nil {
             LOG[ERROR].Println("HTML Template Error", err)
+            http.SetCookie(w, genCookie(ERROR_COOKIE, "HTML Template Error"))
             http.Redirect(w, r, "/error", http.StatusSeeOther)
             return
         }
         err = t.Execute(w, struct{Username, Follow string}{r.FormValue("username"), response.Data.(string)})
         if err != nil {
             LOG[ERROR].Println("HTML Template Execution Error", err)
+            http.SetCookie(w, genCookie(ERROR_COOKIE, "HTML Template Execution Error"))
             http.Redirect(w, r, "/error", http.StatusSeeOther)
         }
     } else if r.Method == http.MethodPost {
@@ -309,12 +329,15 @@ func searchResult(w http.ResponseWriter, r *http.Request) {
             }})
         }
         if response == nil {
+            http.SetCookie(w, genCookie(ERROR_COOKIE, "Send Command Error"))
             http.Redirect(w, r, "/error", http.StatusSeeOther)
             return
         }
 
         if !response.Success {
-            http.Redirect(w, r, "/error", http.StatusSeeOther)  // change
+            http.SetCookie(w, genCookie(ERROR_COOKIE, response.Status))
+            http.Redirect(w, r, "/error", http.StatusSeeOther)
+            return
         }
         LOG[INFO].Println("Follow Successful")
         http.Redirect(w, r, "/home", http.StatusSeeOther)
@@ -332,19 +355,19 @@ func deleteAccount(w http.ResponseWriter, r *http.Request) {
     http.Redirect(w, r, "/welcome", http.StatusSeeOther)
 }
 
-func getCookie(r *http.Request) (LoggedIn bool, Cookie *http.Cookie) {
+func getCookie(r *http.Request, cookiename string) (LoggedIn bool, Cookie *http.Cookie) {
     // ignoring error value because it is likely that the cookie might not exist here
-    cookie, _ := r.Cookie(LOGIN_COOKIE)
+    cookie, _ := r.Cookie(cookiename)
     if cookie == nil {
         return false, nil
     }
     return true, cookie
 }
 
-func genCookie(username string) *http.Cookie {
+func genCookie(cookiename, value string) *http.Cookie {
     return &http.Cookie{
-        Name:     LOGIN_COOKIE,
-        Value:    username,
+        Name:     cookiename,
+        Value:    value,
         Expires:  time.Now().Add(24 * time.Hour),
     }
 }
