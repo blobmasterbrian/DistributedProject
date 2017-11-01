@@ -144,8 +144,8 @@ func signup(w http.ResponseWriter, r *http.Request) {
             return
         }
         if len(r.PostFormValue("username")) == 0 || len(r.PostFormValue("password")) > 0 {
-            LOG[INFO].Println("bad param legnth on signup")
-            http/Redirect(w, r, "/signup", http.StatusSeeOther)
+            LOG[INFO].Println("bad param length on signup")
+            http.Redirect(w, r, "/signup", http.StatusSeeOther)
             return
         }
 

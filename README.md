@@ -1,3 +1,6 @@
+cdp332
+bjq207
+
 To build:
     go to src/webserver and src/backendserver and type "go build" in both folders
     make sure you have an empty data folder and empty lib folder
