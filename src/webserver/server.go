@@ -262,7 +262,6 @@ func searchResult(w http.ResponseWriter, r *http.Request) {
         return
     }
     r.ParseForm()
-    LOG[INFO].Println(r.FormValue("username"), cookie.Value)
     LOG[INFO].Println("Form Values: Username", r.FormValue("username"))
     if cookie.Value == r.FormValue("username") {
         LOG[INFO].Println("User Self Search")
