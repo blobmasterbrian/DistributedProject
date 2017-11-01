@@ -219,7 +219,7 @@ func follow(serverEncoder *gob.Encoder, request CommandRequest) {
     if !ok || !ok2 {
         LOG[WARNING].Println(StatusText(StatusUserNotFound))
         serverEncoder.Encode(CommandResponse{false, StatusUserNotFound, nil})
-        return1111
+        return
     }
     if !user.Follow(user2) {
         LOG[ERROR].Println("User", user.Username, "unable to follow", user2.Username)
