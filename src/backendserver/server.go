@@ -27,11 +27,14 @@ func main() {
         LOG[ERROR].Println("Error starting server ", err)
         return
     }
+    //register for encoding and decoding struct values within data types
     gob.Register([]Post{})
     gob.Register(struct{Username, Password string}{})
     gob.Register(struct{Username1, Username2 string}{})
     gob.Register(struct{Searcher, Target string}{})
     gob.Register(struct{Username, Post string}{})
+
+    //main loop for accepting and running web server commands
     for {
         conn, err := server.Accept()
         if err != nil {
@@ -86,6 +89,8 @@ func loadUsers() {
     }
 }
 
+//run commmand is a basic switch case statment, running required functions based off
+//command codes.  A server encoder is created and passed on to the functions so they can respond.
 func runCommand(conn net.Conn, request CommandRequest) {
     LOG[INFO].Println("Running command ", request.CommandCode)
     serverEncoder := gob.NewEncoder(conn)
@@ -143,6 +148,10 @@ func signup(serverEncoder *gob.Encoder, request CommandRequest) {
     serverEncoder.Encode(CommandResponse{true, StatusAccepted, nil})
 }
 
+//delete account takes a username, then finds the corresponding user
+//It then calls unfollow on the current user and has the current user unfollow
+//all users it is currently following to remove dead references
+//it then removes the user from the map and deletes the user from 
 func deleteAccount(serverEncoder *gob.Encoder, request CommandRequest) {
     username, ok := request.Data.(string)
     if !ok {
@@ -169,6 +178,9 @@ func deleteAccount(serverEncoder *gob.Encoder, request CommandRequest) {
     serverEncoder.Encode(CommandResponse{true, StatusAccepted, nil})
 }
 
+//login takes a username password combo from the command request
+//it then checks these values against the values stored in the map and returns
+//relivant success info
 func login(serverEncoder *gob.Encoder, request CommandRequest) {
     userAndPass, ok := request.Data.(struct{Username, Password string})
     if !ok {
@@ -191,6 +203,9 @@ func login(serverEncoder *gob.Encoder, request CommandRequest) {
     serverEncoder.Encode(CommandResponse{true, StatusAccepted, nil})
  }
 
+
+//follow takes two strings from the command response and then calls follow on the first to the second
+//it returns relivant error information if the follow fails or one of the users does not exist
 func follow(serverEncoder *gob.Encoder, request CommandRequest) {
     users, ok := request.Data.(struct{Username1, Username2 string})
     if !ok {
@@ -204,7 +219,7 @@ func follow(serverEncoder *gob.Encoder, request CommandRequest) {
     if !ok || !ok2 {
         LOG[WARNING].Println(StatusText(StatusUserNotFound))
         serverEncoder.Encode(CommandResponse{false, StatusUserNotFound, nil})
-        return
+        return1111
     }
     if !user.Follow(user2) {
         LOG[ERROR].Println("User", user.Username, "unable to follow", user2.Username)
@@ -217,6 +232,8 @@ func follow(serverEncoder *gob.Encoder, request CommandRequest) {
     serverEncoder.Encode(CommandResponse{true, StatusAccepted, nil})
 }
 
+//follow is similar to above but with reverse functionality, kept as separate functions
+//for ease of front end data sending
 func unfollow(serverEncoder *gob.Encoder, request CommandRequest) {
     users, ok := request.Data.(struct{Username1, Username2 string})
     if !ok {
@@ -243,6 +260,10 @@ func unfollow(serverEncoder *gob.Encoder, request CommandRequest) {
     serverEncoder.Encode(CommandResponse{true, StatusAccepted, nil})
 }
 
+
+//Search takes a command request with two strings: the searcher username and the target username
+//It then performs the specified search and returns if the user is following the target
+//it returns relivant error info if one of the users does not exist
 func search(serverEncoder *gob.Encoder, request CommandRequest) {
     username, ok := request.Data.(struct{Searcher, Target string})
     if !ok {
@@ -255,7 +276,7 @@ func search(serverEncoder *gob.Encoder, request CommandRequest) {
     user2, ok2 := USERS[username.Target]
     if !ok || !ok2 {
         LOG[WARNING].Println(StatusText(StatusUserNotFound))
-        serverEncoder.Encode(CommandResponse{false, StatusUserNotFound, nil})  // change to true cause not failure occurred, split ok1 and ok2
+        serverEncoder.Encode(CommandResponse{false, StatusUserNotFound, nil})
     } else {
         LOG[INFO].Println("User", user1.Username, "search", user2.Username)
         if user1.IsFollowing(user2) {
@@ -266,6 +287,9 @@ func search(serverEncoder *gob.Encoder, request CommandRequest) {
     }
 }
 
+//Chirp takes a command request with a Username Post string combo and calls the corrisponding
+//write Post function for the specified user.  It writes the change to a file and then
+//responds with CommandResponse containing corresponding error info
 func chirp(serverEncoder *gob.Encoder, request CommandRequest) {
     postInfo, ok := request.Data.(struct{Username, Post string})
     if !ok {
@@ -286,8 +310,9 @@ func chirp(serverEncoder *gob.Encoder, request CommandRequest) {
     serverEncoder.Encode(CommandResponse{true, StatusAccepted, nil})
 }
 
-// We should have docstrings for functions to explain what is expected as the Data
-// member of CommandRequest kinda like the comments we had previously in runCommand
+//Get chirps takes in a CommandRequest which contains a string that represents the user that
+//the frontend is trying to get the chrips of.  the corresponding call to getChrips is called
+//and are encoded back to the front end
 func getChrips(serverEncoder *gob.Encoder, request CommandRequest) {
     username, ok := request.Data.(string)
     if !ok {
@@ -305,6 +330,8 @@ func getChrips(serverEncoder *gob.Encoder, request CommandRequest) {
     serverEncoder.Encode(CommandResponse{true, StatusAccepted, user.GetAllChirps(USERS)})
 }
 
+//writeUser takes in a user info pointer and writes the user info to a file using gob
+//there is no return value but logs are created on error
 func writeUser(user *UserInfo) {
     file, err := os.Create("../../data/" + user.Username)
     if err != nil {
