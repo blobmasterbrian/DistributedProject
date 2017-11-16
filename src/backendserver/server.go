@@ -7,8 +7,10 @@ import (
     "log"
     "net"
     "os"
+    "sync"
 )
 
+var USERS_LOCK = &sync.RWMutex{}
 var USERS = map[string]*UserInfo{}      // Map of all users
 var LOG map[int]*log.Logger
 
@@ -49,8 +51,7 @@ func main() {
             LOG[ERROR].Println(StatusText(StatusDecodeError), err)
             continue
         }
-        runCommand(conn, request)
-        conn.Close()
+        go runCommand(conn, request)
     }
 }
 
@@ -67,6 +68,8 @@ func loadUsers() {
         LOG[ERROR].Println("Unable to read the data directory", err)
         panic(err)
     }
+    USERS_LOCK.Lock()
+    defer USERS_LOCK.Unlock()
     for _, user := range users {
         if !user.IsDir() {
             file, err := os.Open("../../data/" + user.Name())
@@ -114,6 +117,7 @@ func runCommand(conn net.Conn, request CommandRequest) {
         default:
             LOG[WARNING].Println("Invalid command ", request.CommandCode, ", ignoring.")
     }
+    conn.Close()
 }
 
 /*
@@ -143,7 +147,10 @@ func signup(serverEncoder *gob.Encoder, request CommandRequest) {
     newUser :=  NewUserInfo(userAndPass.Username, userAndPass.Password)
     writeUser(newUser)
 
+    USERS_LOCK.Lock()
     USERS[newUser.Username] = newUser
+    USERS_LOCK.Unlock()
+
     LOG[INFO].Println("Created user", newUser.Username)
     serverEncoder.Encode(CommandResponse{true, StatusAccepted, nil})
 }
@@ -159,6 +166,9 @@ func deleteAccount(serverEncoder *gob.Encoder, request CommandRequest) {
         serverEncoder.Encode(CommandResponse{false, StatusDecodeError, nil})
         return
     }
+
+    USERS_LOCK.Lock()
+    defer USERS_LOCK.Unlock()
     user, ok := USERS[username]
     if !ok {
         LOG[INFO].Println(StatusText(StatusUserNotFound), username)
@@ -188,6 +198,9 @@ func login(serverEncoder *gob.Encoder, request CommandRequest) {
         serverEncoder.Encode(CommandResponse{false, StatusDecodeError, nil})
         return
     }
+
+    USERS_LOCK.RLock()
+    defer USERS_LOCK.RUnlock()
     user, ok := USERS[userAndPass.Username]
     if !ok {
         LOG[INFO].Println(StatusText(StatusUserNotFound), userAndPass.Username)
@@ -199,6 +212,7 @@ func login(serverEncoder *gob.Encoder, request CommandRequest) {
         serverEncoder.Encode(CommandResponse{false, StatusIncorrectPassword, nil})
         return
     }
+
     LOG[INFO].Println("User", user.Username, "login")
     serverEncoder.Encode(CommandResponse{true, StatusAccepted, nil})
  }
@@ -214,6 +228,8 @@ func follow(serverEncoder *gob.Encoder, request CommandRequest) {
         return
     }
 
+    USERS_LOCK.RLock()
+    defer USERS_LOCK.RUnlock()
     user, ok := USERS[users.Username1]
     user2, ok2 := USERS[users.Username2]
     if !ok || !ok2 {
@@ -242,6 +258,8 @@ func unfollow(serverEncoder *gob.Encoder, request CommandRequest) {
         return
     }
 
+    USERS_LOCK.RLock()
+    defer USERS_LOCK.RUnlock()
     user, ok := USERS[users.Username1]
     user2, ok2 := USERS[users.Username2]
     if !ok || !ok2 {
@@ -272,6 +290,7 @@ func search(serverEncoder *gob.Encoder, request CommandRequest) {
         return
     }
 
+    USERS_LOCK.RLock()
     user1, ok := USERS[username.Searcher]
     user2, ok2 := USERS[username.Target]
     if !ok || !ok2 {
@@ -285,6 +304,7 @@ func search(serverEncoder *gob.Encoder, request CommandRequest) {
             serverEncoder.Encode(CommandResponse{true, StatusUserNotFollowed, "Follow"})
         }
     }
+    USERS_LOCK.RUnlock()
 }
 
 //Chirp takes a command request with a Username Post string combo and calls the corrisponding
@@ -298,6 +318,8 @@ func chirp(serverEncoder *gob.Encoder, request CommandRequest) {
         return
     }
 
+    USERS_LOCK.RLock()
+    defer USERS_LOCK.RUnlock()
     user, ok := USERS[postInfo.Username]
     if !ok {
         LOG[WARNING].Println(StatusText(StatusUserNotFound), postInfo.Username)
@@ -321,6 +343,8 @@ func getChrips(serverEncoder *gob.Encoder, request CommandRequest) {
         return
     }
 
+    USERS_LOCK.RLock()
+    defer USERS_LOCK.RUnlock()
     user, ok := USERS[username]
     if !ok {
         LOG[WARNING].Println(StatusText(StatusUserNotFound), username)
