@@ -357,6 +357,8 @@ func getChrips(serverEncoder *gob.Encoder, request CommandRequest) {
 //writeUser takes in a user info pointer and writes the user info to a file using gob
 //there is no return value but logs are created on error
 func writeUser(user *UserInfo) {
+    user.Mut.Lock()
+    defer user.Mut.Unlock()
     file, err := os.Create("../../data/" + user.Username)
     if err != nil {
         LOG[ERROR].Println("Unable to create file ", err)
