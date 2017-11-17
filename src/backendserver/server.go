@@ -78,14 +78,14 @@ func loadUsers() {
                 continue
             }
             decoder := gob.NewDecoder(file)
-            var uInfo UserInfo
-            err = decoder.Decode(&uInfo)
+            uInfo := NewUserInfo("","")
+            err = decoder.Decode(uInfo)
             if err != nil {
                 LOG[ERROR].Println(StatusText(StatusDecodeError), err)
                 file.Close()
                 continue
             }
-            USERS[uInfo.Username] = &uInfo
+            USERS[uInfo.Username] = uInfo
             LOG[INFO].Println("Load user", uInfo.Username)
             file.Close()
         }
@@ -357,8 +357,8 @@ func getChrips(serverEncoder *gob.Encoder, request CommandRequest) {
 //writeUser takes in a user info pointer and writes the user info to a file using gob
 //there is no return value but logs are created on error
 func writeUser(user *UserInfo) {
-    user.Mut.Lock()
-    defer user.Mut.Unlock()
+    user.Lock()
+    defer user.Unlock()
     file, err := os.Create("../../data/" + user.Username)
     if err != nil {
         LOG[ERROR].Println("Unable to create file ", err)

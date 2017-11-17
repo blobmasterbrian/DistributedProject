@@ -13,7 +13,7 @@ type UserInfo struct {
     Following  map[string]bool
     FollowedBy []string
     Posts      []Post
-    Mut        *sync.Mutex
+    mut        *sync.Mutex
 }
 
 // NOTE: no longer necessary as it is no longer package private, creates new UserInfo struct
@@ -22,7 +22,7 @@ func NewUserInfo(username, password string) *UserInfo {
     newUser.Username = username
     newUser.Password = password
     newUser.Following = make(map[string]bool)
-    newUser.Mut = &sync.Mutex{}
+    newUser.mut = &sync.Mutex{}
     return newUser
 }
 
@@ -72,19 +72,29 @@ func (q *PriorityQueue) Pop() interface{} {
     return removedPost
 }
 
+// Locks the user mutex
+func (user *UserInfo) Lock() {
+    user.mut.Lock()
+}
+
+// Unlocks the user mutex
+func (user *UserInfo) Unlock() {
+    user.mut.Unlock()
+}
+
 // Checks if a given password hash matches the password hash stored in UserInfo
-func (u *UserInfo) CheckPass(password string) bool {
-    u.Mut.Lock()
-    defer u.Mut.Unlock()
-    return u.Password == password
+func (user *UserInfo) CheckPass(password string) bool {
+    user.mut.Lock()
+    defer user.mut.Unlock()
+    return user.Password == password
 }
 
 // Current UserInfo follows the UserInfo passed in parameter
 func (user *UserInfo) Follow(newFollow *UserInfo) bool {
-    user.Mut.Lock()
-    newFollow.Mut.Lock()
-    defer user.Mut.Unlock()
-    defer newFollow.Mut.Unlock()
+    user.mut.Lock()
+    newFollow.mut.Lock()
+    defer user.mut.Unlock()
+    defer newFollow.mut.Unlock()
     if newFollow == nil || user.Following[newFollow.Username] {
         return false
     }
@@ -95,10 +105,10 @@ func (user *UserInfo) Follow(newFollow *UserInfo) bool {
 
 // Current UserInfo unfollows the UserInfo passed in parameter
 func (user *UserInfo) UnFollow(oldFollow *UserInfo) bool {
-    user.Mut.Lock()
-    oldFollow.Mut.Lock()
-    defer user.Mut.Unlock()
-    defer oldFollow.Mut.Unlock()
+    user.mut.Lock()
+    oldFollow.mut.Lock()
+    defer user.mut.Unlock()
+    defer oldFollow.mut.Unlock()
     if oldFollow == nil || !user.Following[oldFollow.Username] {
         return false
     }
@@ -114,10 +124,10 @@ func (user *UserInfo) UnFollow(oldFollow *UserInfo) bool {
 
 // Checks if current UserInfo is following the UserInfo passed in parameter
 func (user *UserInfo) IsFollowing(other *UserInfo) bool {
-    user.Mut.Lock()
-    other.Mut.Lock()
-    defer user.Mut.Unlock()
-    defer other.Mut.Unlock()
+    user.mut.Lock()
+    other.mut.Lock()
+    defer user.mut.Unlock()
+    defer other.mut.Unlock()
     for item := range user.Following {
         if item == other.Username {
             return true
@@ -129,17 +139,17 @@ func (user *UserInfo) IsFollowing(other *UserInfo) bool {
 
 // Creates a Post appended to UserInfo's Posts member
 func (user *UserInfo) WritePost(msg string){
-    user.Mut.Lock()
+    user.mut.Lock()
     newPost := Post{Poster: user.Username, Message: msg, Time: time.Now().Format(time.RFC1123)[0:len(time.RFC1123)-4], Stamp: time.Now()}
     user.Posts = append(user.Posts, newPost)
-    user.Mut.Unlock()
+    user.mut.Unlock()
 }
 
 // Creates a PriorityQueue implemented with a heap to pull all of the posts and return a slice with
 // the posts in order (includes the current user's posts)
 func (user *UserInfo) GetAllChirps(USERS map[string]*UserInfo) []Post {
-    user.Mut.Lock()
-    defer user.Mut.Unlock()
+    user.mut.Lock()
+    defer user.mut.Unlock()
     var result = []Post{}
 
     var allChirps PriorityQueue
@@ -148,11 +158,11 @@ func (user *UserInfo) GetAllChirps(USERS map[string]*UserInfo) []Post {
         heap.Push(&allChirps, &(user.Posts[i]))  // uses the Push method defined above
     }
     for followed := range user.Following {
-        USERS[followed].Mut.Lock()
+        USERS[followed].mut.Lock()
         for i := range USERS[followed].Posts {
             heap.Push(&allChirps, &(USERS[followed].Posts[i]))  // uses the Push method defined above
         }
-        USERS[followed].Mut.Unlock()
+        USERS[followed].mut.Unlock()
     }
     for allChirps.Len() > 0 {  // uses the Len method defined above
         result = append(result, *heap.Pop(&allChirps).(*Post))  // appends the result of Pop (defined above) to the resulting slice
