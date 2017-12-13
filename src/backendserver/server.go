@@ -7,6 +7,7 @@ import (
     "log"
     "net"
     "os"
+    "strconv"
     "sync"
 )
 
@@ -22,13 +23,35 @@ func main() {
         os.Mkdir("../../data", os.ModePerm)
     }
     LOG = InitLog("../../log/backend.txt")
-    loadUsers()
 
-    server, err := net.Listen("tcp", ":5000")
+    var activeServers []int
+    var serverMutex = &sync.Mutex{}
+
+    identity := determineMaster(&activeServers, serverMutex)
+
+
+    LOG[INFO].Println(activeServers)
+    server, err := net.Listen("tcp", ":" + strconv.Itoa(identity))
     if err != nil {
-        LOG[ERROR].Println("Error starting server ", err)
-        return
+        LOG[WARNING].Println("Unable to listen on master port, rerunning determine master")
+        USERS_LOCK.Lock()
+        USERS = map[string]*UserInfo{}
+        USERS_LOCK.Unlock()
+        serverMutex.Lock()
+        activeServers = []int{}
+        serverMutex.Unlock()
+        identity = determineMaster(&activeServers, serverMutex)
+        if identity == 5000 {
+            LOG[ERROR].Println("double resolve to master, unable to listen", err)
+            return
+        }
+        server, err = net.Listen("tcp", ":" + strconv.Itoa(identity))
+        if err != nil {
+            LOG[ERROR].Println("Unable to listen on port", identity, err)
+            return
+        }
     }
+
     //register for encoding and decoding struct values within data types
     gob.Register([]Post{})
     gob.Register(struct{Username, Password string}{})
@@ -55,6 +78,39 @@ func main() {
     }
 }
 
+
+func determineMaster(activeServers *[]int, serverMutex *sync.Mutex) int {
+    conn, err := net.Dial("tcp", ":4000")
+    //if we are the master
+    if err != nil {
+        LOG[INFO].Println("new master startup")
+        serverMutex.Lock()
+        *activeServers = append(*activeServers, 5000)
+        serverMutex.Unlock()
+        loadUsers()
+        go acceptNewServers(activeServers, serverMutex)
+        return 5000
+    }
+    defer conn.Close()
+    return 0
+}
+
+func acceptNewServers(activeServers *[]int, serverMutex *sync.Mutex) {
+    server, err := net.Listen("tcp", ":4000")
+    if err != nil {
+        LOG[ERROR].Println(StatusText(StatusConnectionError), err)
+        return
+    }
+    for {
+        conn, err := server.Accept()
+        if err != nil {
+            LOG[ERROR].Println(StatusText(StatusConnectionError), err)
+            continue
+        }
+
+        conn.Close()
+   }
+}
 
 /*
     Load Users reads encoded gob files from the data directory and fills the USERS map with

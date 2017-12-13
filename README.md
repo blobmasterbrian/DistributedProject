@@ -24,5 +24,9 @@ How the structure of files is stored:
     current user, users that the current user is following, and all of the posts of the user.
     The information serialized and stored on modification of the user using Gob.
 
-There are no modifications to the User Interface except a addtional check for username and password
-length to be above 1.
+How the locks work:
+    There is a read/write lock on the global map storing the users, the only time a write lock is
+    aquired is when a new user is created or a user is deleted, the rest of the operations are reads
+    multiple reads can aquire the read lock at once, a write lock can only be held by one operation
+    and during the time no reads can be made.   Each user also has a mutex for operations that modify
+    or access and individual user's data.
