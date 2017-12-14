@@ -9,7 +9,6 @@ import (
     "os"
     "strconv"
     "sync"
-    "net/url"
 )
 
 var USERS_LOCK = &sync.RWMutex{}
