@@ -11,6 +11,7 @@ const (
 	CommandChirp
 	CommandGetChirps
 	CommandSendPing
+	CommandConstructFilesystem
 )
 
 // STATUS CODES (Status Codes for frontend/backend communication)

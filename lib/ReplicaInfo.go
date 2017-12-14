@@ -13,9 +13,10 @@ import (
 type ReplicaInfo struct {
 	id            int
 	masterId      int
-	isMaster      bool
+	IsMaster      bool
 	serverMutex   *sync.Mutex
 	activeServers []int
+	Port		  int
 	LOG           map[int]*log.Logger
 }
 
@@ -26,7 +27,7 @@ func NewReplica() ReplicaInfo {
 		IsMaster:      false,
 		serverMutex:   &sync.Mutex{},
 		activeServers: []int{},
-        Port           -1,
+        Port:           -1,
 		LOG:           InitLog("../../log/replica.log"),
 	}
 }
@@ -37,7 +38,7 @@ func (replica *ReplicaInfo) ResetServers() {
 	replica.serverMutex.Unlock()
 }
 
-func (replica *ReplicaInfo) DetermineMaster(portChannel chan int) {
+func (replica *ReplicaInfo) DetermineMaster(portChannel chan int, userChannel chan *UserInfo, users *map[string]*UserInfo, usersLock *sync.RWMutex) {
 	conn, err := net.Dial("tcp", ":4000")
 	//if we are the master
 	if err != nil {
@@ -53,15 +54,25 @@ func (replica *ReplicaInfo) DetermineMaster(portChannel chan int) {
 
 		portChannel <- 0
 
-        go replica.acceptNewServers()
+        go replica.acceptNewServers(users, usersLock)
 		go replica.sendPings()
 		return
 	}
-	conn.Close()
-    //replace with id
 	portChannel <- 0
+	decoder := gob.NewDecoder(conn)
+	var request CommandRequest
+	err = decoder.Decode(&request)
+	if err != nil {
+		replica.LOG[ERROR].Println(StatusText(StatusDecodeError), err)
+		panic("Can't decode info for construction")
+	}
 
-	portChannel <- 0
+	uInfo := NewUserInfo("","")
+	for decoder.Decode(uInfo) != nil {
+		userChannel <- uInfo
+	}
+	close(userChannel)
+	conn.Close()
 }
 
 func (replica *ReplicaInfo) sendPings() {
@@ -91,7 +102,7 @@ func (replica *ReplicaInfo) sendPings() {
 	}
 }
 
-func (replica *ReplicaInfo) acceptNewServers(users *map[string]*UserInfo, users_lock *sync.RWMutex) {
+func (replica *ReplicaInfo) acceptNewServers(users *map[string]*UserInfo, usersLock *sync.RWMutex) {
 	server, err := net.Listen("tcp", ":4000")
 	if err != nil {
 		replica.LOG[ERROR].Println(StatusText(StatusConnectionError), err)
@@ -104,19 +115,26 @@ func (replica *ReplicaInfo) acceptNewServers(users *map[string]*UserInfo, users_
 			continue
 		}
         //send info
-        newId = replica.generateNewId()
-        
+        newId := replica.generateNewId()
+
+        request := CommandRequest{CommandConstructFilesystem, struct {
+			Id         int
+			Serverlist []int
+		}{
+			newId,
+			replica.activeServers,
+		}}
 
         encoder := gob.NewEncoder(conn)
-        encoder.Encode(replica.activeServers)
-        users_lock.RLock()
-        for _, user := range users {
+        encoder.Encode(request)
+        usersLock.RLock()
+        for _, user := range *users {
             err = encoder.Encode(user)
             if err != nil {
-                LOG[ERROR].Println(StatusText(StatusEncodeError), err)
+                replica.LOG[ERROR].Println(StatusText(StatusEncodeError), err)
             }
         }
-        users_lock.RUnlock()
+        usersLock.RUnlock()
 		conn.Close()
 	}
 }

@@ -9,6 +9,7 @@ import (
     "os"
     "strconv"
     "sync"
+    "net/url"
 )
 
 var USERS_LOCK = &sync.RWMutex{}
@@ -27,10 +28,10 @@ func main() {
     replica := NewReplica()
 
     portChannel := make(chan int)
-    go replica.DetermineMaster(portChannel)
+    userChannel := make(chan *UserInfo)
+    go replica.DetermineMaster(portChannel, userChannel, &USERS, USERS_LOCK)
     loadUsers()
     <-portChannel
-    LOG[INFO].Println(identity)
 
     server, err := net.Listen("tcp", ":" + strconv.Itoa(replica.Port))
     if err != nil {
@@ -39,12 +40,18 @@ func main() {
         USERS = map[string]*UserInfo{}
         USERS_LOCK.Unlock()
         replica.ResetServers()
-        replica.DetermineMaster(portChannel)
+        replica.DetermineMaster(portChannel, userChannel, &USERS, USERS_LOCK)
         <-portChannel
         if replica.IsMaster {
             LOG[ERROR].Println("double resolve to master, unable to listen", err)
-            return
+            panic("Server insists it is the master when it is not")
         }
+
+        uInfo, ok := <- userChannel
+        for ok {
+            writeUser(uInfo)
+        }
+
         server, err = net.Listen("tcp", ":" + strconv.Itoa(replica.Port))
         if err != nil {
             LOG[ERROR].Println("Unable to listen on port", replica.Port, err)
@@ -133,7 +140,7 @@ func loadUsers() {
     }
 }
 
-//run commmand is a basic switch case statment, running required functions based off
+//run command is a basic switch case statement, running required functions based off
 //command codes.  A server encoder is created and passed on to the functions so they can respond.
 func runCommand(conn net.Conn, request CommandRequest) {
     LOG[INFO].Println("Running command ", request.CommandCode)
@@ -157,6 +164,8 @@ func runCommand(conn net.Conn, request CommandRequest) {
             getChrips(serverEncoder, request)
         case CommandSendPing:
             LOG[INFO].Println("Ping Received from Master")
+        case CommandConstructFilesystem:
+            LOG[WARNING].Println("Filesystem Already Constructed")
         default:
             LOG[WARNING].Println("Invalid command ", request.CommandCode, ", ignoring.")
     }
@@ -166,7 +175,7 @@ func runCommand(conn net.Conn, request CommandRequest) {
 /*
     signup takes in a decoder as an argument with an expected decode resulting in a 
     username password combo.
-    signup returns true or false representing whether a user was created sucessfully
+    signup returns true or false representing whether a user was created successfully
 
     signup then tries to create a file ../../data/*username* and encode a new UserInfo
     object into the file.
