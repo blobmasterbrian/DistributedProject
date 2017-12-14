@@ -89,6 +89,8 @@ func (replica *ReplicaInfo) sendPings() {
 			if err != nil {
 				replica.LOG[WARNING].Println("Server at port", port, "is dead")
 				replica.activeServers = append(replica.activeServers[:i], replica.activeServers[i+1:]...)
+				replica.serverMutex.Unlock()
+				continue
 			}
 			replica.serverMutex.Unlock()
 
@@ -98,6 +100,7 @@ func (replica *ReplicaInfo) sendPings() {
 			if err != nil {
 				replica.LOG[ERROR].Println(StatusText(StatusEncodeError), err)
 			}
+			conn.Close()
 		}
 	}
 }
