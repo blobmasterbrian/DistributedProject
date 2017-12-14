@@ -22,25 +22,27 @@ func main() {
     if _, err := os.Stat("../../data"); os.IsNotExist(err) {
         os.Mkdir("../../data", os.ModePerm)
     }
-    LOG = InitLog("../../log/backend.txt")
+    LOG = InitLog("../../log/backend.log")
 
-    var activeServers []int
-    var serverMutex = &sync.Mutex{}
+    replica := NewReplica()
 
-    identity := determineMaster(&activeServers, serverMutex)
+    portChannel := make(chan int)
+    go replica.DetermineMaster(portChannel)
+    identity := <-portChannel
+    loadUsers()
+    <-portChannel
+    LOG[INFO].Println(identity)
 
-
-    LOG[INFO].Println(activeServers)
     server, err := net.Listen("tcp", ":" + strconv.Itoa(identity))
     if err != nil {
         LOG[WARNING].Println("Unable to listen on master port, rerunning determine master")
         USERS_LOCK.Lock()
         USERS = map[string]*UserInfo{}
         USERS_LOCK.Unlock()
-        serverMutex.Lock()
-        activeServers = []int{}
-        serverMutex.Unlock()
-        identity = determineMaster(&activeServers, serverMutex)
+        replica.ResetServers()
+        replica.DetermineMaster(portChannel)
+        identity := <-portChannel
+        <-portChannel
         if identity == 5000 {
             LOG[ERROR].Println("double resolve to master, unable to listen", err)
             return
@@ -79,38 +81,23 @@ func main() {
 }
 
 
-func determineMaster(activeServers *[]int, serverMutex *sync.Mutex) int {
-    conn, err := net.Dial("tcp", ":4000")
-    //if we are the master
-    if err != nil {
-        LOG[INFO].Println("new master startup")
-        serverMutex.Lock()
-        *activeServers = append(*activeServers, 5000)
-        serverMutex.Unlock()
-        loadUsers()
-        go acceptNewServers(activeServers, serverMutex)
-        return 5000
-    }
-    defer conn.Close()
-    return 0
-}
 
-func acceptNewServers(activeServers *[]int, serverMutex *sync.Mutex) {
-    server, err := net.Listen("tcp", ":4000")
-    if err != nil {
-        LOG[ERROR].Println(StatusText(StatusConnectionError), err)
-        return
-    }
-    for {
-        conn, err := server.Accept()
-        if err != nil {
-            LOG[ERROR].Println(StatusText(StatusConnectionError), err)
-            continue
-        }
-
-        conn.Close()
-   }
-}
+//func determineMaster(activeServers *[]int, serverMutex *sync.Mutex) int {
+//    conn, err := net.Dial("tcp", ":4000")
+//    //if we are the master
+//    if err != nil {
+//        LOG[INFO].Println("new master startup")
+//        serverMutex.Lock()
+//        *activeServers = append(*activeServers, 5000)
+//        serverMutex.Unlock()
+//        loadUsers()
+//        go acceptNewServers(activeServers, serverMutex)
+//        go sendPings(activeServers, serverMutex)
+//        return 5000
+//    }
+//    defer conn.Close()
+//    return 0
+//}
 
 /*
     Load Users reads encoded gob files from the data directory and fills the USERS map with
@@ -170,6 +157,8 @@ func runCommand(conn net.Conn, request CommandRequest) {
             chirp(serverEncoder, request)
         case CommandGetChirps:
             getChrips(serverEncoder, request)
+        case CommandSendPing:
+            LOG[INFO].Println("Ping Received from Master")
         default:
             LOG[WARNING].Println("Invalid command ", request.CommandCode, ", ignoring.")
     }

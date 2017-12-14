@@ -21,7 +21,7 @@ func main() {
     if _, err := os.Stat("../../log"); os.IsNotExist(err) {
         os.Mkdir("../../log", os.ModePerm)
     }
-    LOG = InitLog("../../log/frontend.txt")  // create logger map associated with different log codes
+    LOG = InitLog("../../log/frontend.log")  // create logger map associated with different log codes
     http.HandleFunc("/", welcomeRedirect)  // function for server address page
     http.HandleFunc("/welcome", welcome)   // function for welcome page (main page for not logged in users)
     http.HandleFunc("/signup", signup)     // function for signup page

@@ -10,6 +10,7 @@ const (
 	CommandSearch
 	CommandChirp
 	CommandGetChirps
+	CommandSendPing
 )
 
 // STATUS CODES (Status Codes for frontend/backend communication)
