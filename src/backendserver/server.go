@@ -49,6 +49,7 @@ func main() {
         uInfo, ok := <- userChannel
         for ok {
             writeUser(uInfo)
+            uInfo, ok = <- userChannel
         }
 
         server, err = net.Listen("tcp", ":" + strconv.Itoa(replica.Port))
