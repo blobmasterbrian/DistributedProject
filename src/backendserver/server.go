@@ -28,12 +28,11 @@ func main() {
 
     portChannel := make(chan int)
     go replica.DetermineMaster(portChannel)
-    identity := <-portChannel
     loadUsers()
     <-portChannel
     LOG[INFO].Println(identity)
 
-    server, err := net.Listen("tcp", ":" + strconv.Itoa(identity))
+    server, err := net.Listen("tcp", ":" + strconv.Itoa(replica.Port))
     if err != nil {
         LOG[WARNING].Println("Unable to listen on master port, rerunning determine master")
         USERS_LOCK.Lock()
@@ -41,15 +40,14 @@ func main() {
         USERS_LOCK.Unlock()
         replica.ResetServers()
         replica.DetermineMaster(portChannel)
-        identity := <-portChannel
         <-portChannel
-        if identity == 5000 {
+        if replica.IsMaster {
             LOG[ERROR].Println("double resolve to master, unable to listen", err)
             return
         }
-        server, err = net.Listen("tcp", ":" + strconv.Itoa(identity))
+        server, err = net.Listen("tcp", ":" + strconv.Itoa(replica.Port))
         if err != nil {
-            LOG[ERROR].Println("Unable to listen on port", identity, err)
+            LOG[ERROR].Println("Unable to listen on port", replica.Port, err)
             return
         }
     }
