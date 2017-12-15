@@ -24,6 +24,14 @@ func main() {
     }
     LOG = InitLog("../../log/backend.log")
 
+    //register for encoding and decoding struct values within data types
+    gob.Register([]Post{})
+    gob.Register(struct{Username, Password string}{})
+    gob.Register(struct{Username1, Username2 string}{})
+    gob.Register(struct{Searcher, Target string}{})
+    gob.Register(struct{Username, Post string}{})
+    gob.Register(struct{Id int; Serverlist []int}{})
+
     replica := NewReplica()
 
     portChannel := make(chan int)
@@ -57,14 +65,6 @@ func main() {
             return
         }
     }
-
-    //register for encoding and decoding struct values within data types
-    gob.Register([]Post{})
-    gob.Register(struct{Username, Password string}{})
-    gob.Register(struct{Username1, Username2 string}{})
-    gob.Register(struct{Searcher, Target string}{})
-    gob.Register(struct{Username, Post string}{})
-    gob.Register(struct{Id, Serverlist []int}{})
 
     //main loop for accepting and running web server commands
     for {
