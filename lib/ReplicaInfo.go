@@ -66,7 +66,6 @@ func (replica *ReplicaInfo) DetermineMaster(portChannel chan int, userChannel ch
 		go replica.sendPings()
 		return
 	}
-	portChannel <- 0
 	decoder := gob.NewDecoder(conn)
 	var request CommandRequest
 	err = decoder.Decode(&request)
@@ -74,6 +73,12 @@ func (replica *ReplicaInfo) DetermineMaster(portChannel chan int, userChannel ch
 		replica.LOG[ERROR].Println(StatusText(StatusDecodeError), err)
 		panic("Can't decode info for construction")
 	}
+	IdAndServerList := request.Data.(struct{Id int; Serverlist []int})
+	replica.id = IdAndServerList.Id
+	replica.Port = IdAndServerList.Id
+	replica.activeServers = IdAndServerList.Serverlist
+
+	portChannel <- 0
 
 	uInfo := NewUserInfo("","")
 	for decoder.Decode(uInfo) != nil {
@@ -86,7 +91,7 @@ func (replica *ReplicaInfo) DetermineMaster(portChannel chan int, userChannel ch
 func (replica *ReplicaInfo) sendPings() {
 	for {
 		time.Sleep(3 * time.Second)
-		replica.LOG[INFO].Println("Initiate Pinging")
+		replica.LOG[INFO].Println("Initiate Pinging", replica.activeServers)
 		for i, port := range replica.activeServers {
             if port == replica.id {
                 continue
@@ -158,6 +163,7 @@ func (replica *ReplicaInfo) acceptNewServers(users *map[string]*UserInfo, usersL
 		}
         //send info
         newId := replica.generateNewId()
+        replica.activeServers = append(replica.activeServers, newId)
 
         request := CommandRequest{CommandConstructFilesystem, struct {
 			Id         int
@@ -188,5 +194,5 @@ func (replica *ReplicaInfo) generateNewId() int {
             max = elem
         }
     }
-    return max
+    return max + 1
 }

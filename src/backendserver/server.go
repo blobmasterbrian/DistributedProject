@@ -9,6 +9,7 @@ import (
     "os"
     "strconv"
     "sync"
+    "time"
 )
 
 var USERS_LOCK = &sync.RWMutex{}
@@ -40,7 +41,11 @@ func main() {
     loadUsers()
     <-portChannel
 
-    server, err := net.Listen("tcp", ":" + strconv.Itoa(replica.Port))
+    addr, err := net.ResolveTCPAddr("tcp", "127.0.0.1:" + strconv.Itoa(replica.Port))
+    if err != nil {
+        LOG[WARNING].Println("TCPAddr struct could not be created", err)
+    }
+    server, err := net.ListenTCP("tcp", addr)
     if err != nil {
         LOG[WARNING].Println("Unable to listen on master port, rerunning determine master")
         USERS_LOCK.Lock()
@@ -59,7 +64,11 @@ func main() {
             USERS[uInfo.Username] = uInfo
         }
 
-        server, err = net.Listen("tcp", ":" + strconv.Itoa(replica.Port))
+        addr, err := net.ResolveTCPAddr("tcp", "127.0.0.1:" + strconv.Itoa(replica.Port))
+        if err != nil {
+            LOG[WARNING].Println("TCPAddr struct could not be created", err)
+        }
+        server, err = net.ListenTCP("tcp", addr)
         if err != nil {
             LOG[ERROR].Println("Unable to listen on port", replica.Port, err)
             return
@@ -68,8 +77,16 @@ func main() {
 
     //main loop for accepting and running web server commands
     for {
+        if !replica.IsMaster {
+            server.SetDeadline(time.Now().Add(15 * time.Second))
+        }
         conn, err := server.Accept()
         if err != nil {
+            nErr := err.(*net.OpError)
+            if nErr.Timeout() {
+                LOG[WARNING].Println("Master Is Ded, Running Election")
+                // election
+            }
             LOG[ERROR].Println(StatusText(StatusConnectionError), err)
             continue
         }
@@ -87,25 +104,6 @@ func main() {
         go runCommand(conn, request)
     }
 }
-
-
-
-//func determineMaster(activeServers *[]int, serverMutex *sync.Mutex) int {
-//    conn, err := net.Dial("tcp", ":4000")
-//    //if we are the master
-//    if err != nil {
-//        LOG[INFO].Println("new master startup")
-//        serverMutex.Lock()
-//        *activeServers = append(*activeServers, 5000)
-//        serverMutex.Unlock()
-//        loadUsers()
-//        go acceptNewServers(activeServers, serverMutex)
-//        go sendPings(activeServers, serverMutex)
-//        return 5000
-//    }
-//    defer conn.Close()
-//    return 0
-//}
 
 /*
     Load Users reads encoded gob files from the data directory and fills the USERS map with
