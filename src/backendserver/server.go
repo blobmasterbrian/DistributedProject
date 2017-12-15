@@ -38,7 +38,15 @@ func main() {
     portChannel := make(chan int)
     userChannel := make(chan *UserInfo)
     go replica.DetermineMaster(portChannel, userChannel, &USERS, USERS_LOCK)
-    loadUsers()
+    <-portChannel
+    if replica.IsMaster {
+        loadUsers()
+    } else {
+        for uInfo := range userChannel {
+            writeUser(uInfo)
+            USERS[uInfo.Username] = uInfo
+        }
+    }
     <-portChannel
 
     addr, err := net.ResolveTCPAddr("tcp", "127.0.0.1:" + strconv.Itoa(replica.Port))
@@ -57,11 +65,6 @@ func main() {
         if replica.IsMaster {
             LOG[ERROR].Println("double resolve to master, unable to listen", err)
             panic("Server insists it is the master when it is not")
-        }
-
-        for uInfo := range userChannel {
-            writeUser(uInfo)
-            USERS[uInfo.Username] = uInfo
         }
 
         addr, err := net.ResolveTCPAddr("tcp", "127.0.0.1:" + strconv.Itoa(replica.Port))

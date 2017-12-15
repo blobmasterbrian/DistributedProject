@@ -60,7 +60,10 @@ func (replica *ReplicaInfo) DetermineMaster(portChannel chan int, userChannel ch
         replica.id = 5001
         replica.Port = 5000
 
-		portChannel <- 0
+	    //let backend know IsMaster is set
+        portChannel <- 0
+        //wait until load users is complete
+        portChannel <- 0
 
         go replica.acceptNewServers(users, usersLock)
 		go replica.sendPings()
@@ -85,6 +88,8 @@ func (replica *ReplicaInfo) DetermineMaster(portChannel chan int, userChannel ch
 		userChannel <- uInfo
 	}
 	close(userChannel)
+    portChannel <- 0
+
 	conn.Close()
 }
 
@@ -93,6 +98,7 @@ func (replica *ReplicaInfo) sendPings() {
 		time.Sleep(3 * time.Second)
 		replica.LOG[INFO].Println("Initiate Pinging", replica.activeServers)
 		for i, port := range replica.activeServers {
+            replica.LOG[INFO].Println("replica id:", replica.id, "port", port)
             if port == replica.id {
                 continue
             }
