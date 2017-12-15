@@ -21,6 +21,13 @@ type ReplicaInfo struct {
 }
 
 func NewReplica() ReplicaInfo {
+    gob.Register([]Post{})
+    gob.Register(struct{Username, Password string}{})
+    gob.Register(struct{Username1, Username2 string}{})
+    gob.Register(struct{Searcher, Target string}{})
+    gob.Register(struct{Username, Post string}{})
+
+
 	return ReplicaInfo{
 		id:            -1,
 		masterId:      -1,
@@ -45,7 +52,7 @@ func (replica *ReplicaInfo) DetermineMaster(portChannel chan int, userChannel ch
 		replica.LOG[INFO].Println("new master startup")
 
         replica.serverMutex.Lock()
-		replica.activeServers = append(replica.activeServers, 1)
+		replica.activeServers = append(replica.activeServers, 5001)
 		replica.serverMutex.Unlock()
 
         replica.IsMaster = true
@@ -80,6 +87,9 @@ func (replica *ReplicaInfo) sendPings() {
 		time.Sleep(3 * time.Second)
 		replica.LOG[INFO].Println("Initiate Pinging")
 		for i, port := range replica.activeServers {
+            if port == replica.id {
+                continue
+            }
 			replica.LOG[INFO].Println("Pinging server at port", port)
 			replica.serverMutex.Lock()
 			conn, err := net.Dial("tcp", ":" + strconv.Itoa(port))
@@ -110,6 +120,10 @@ func (replica *ReplicaInfo) PropagateRequest(request CommandRequest) {
     replica.serverMutex.Lock()
     defer replica.serverMutex.Unlock()
     for i, port := range replica.activeServers {
+        if port == replica.Port {
+            continue
+        }
+
         replica.LOG[INFO].Println("Sending", request.CommandCode, "to port", port)
         conn, err := net.Dial("tcp", ":" + strconv.Itoa(port))
         if err != nil {
