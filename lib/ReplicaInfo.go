@@ -105,6 +105,30 @@ func (replica *ReplicaInfo) sendPings() {
 	}
 }
 
+func (replica *ReplicaInfo) PropagateRequest(request CommandRequest) {
+    replica.LOG[INFO].Println("Propagating request", request.CommandCode)
+    replica.serverMutex.Lock()
+    defer replica.serverMutex.Unlock()
+    for i, port := range replica.activeServers {
+        replica.LOG[INFO].Println("Sending", request.CommandCode, "to port", port)
+        conn, err := net.Dial("tcp", ":" + strconv.Itoa(port))
+        if err != nil {
+            conn, err = net.Dial("tcp", ":" + strconv.Itoa(port))
+        }
+        if err != nil {
+            replica.LOG[WARNING].Println("Server at port", port, "is dead")
+            replica.activeServers = append(replica.activeServers[:i], replica.activeServers[i+1:]...)
+            continue
+        }
+        encoder := gob.NewEncoder(conn)
+        err = encoder.Encode(request)
+        if err != nil {
+            replica.LOG[ERROR].Println(StatusText(StatusEncodeError), err)
+        }
+        conn.Close()
+    }
+}
+
 func (replica *ReplicaInfo) acceptNewServers(users *map[string]*UserInfo, usersLock *sync.RWMutex) {
 	server, err := net.Listen("tcp", ":4000")
 	if err != nil {

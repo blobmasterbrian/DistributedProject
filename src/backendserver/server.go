@@ -80,6 +80,9 @@ func main() {
             LOG[ERROR].Println(StatusText(StatusDecodeError), err)
             continue
         }
+        if replica.IsMaster {
+            replica.PropagateRequest(request)
+        }
         go runCommand(conn, request)
     }
 }
