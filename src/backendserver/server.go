@@ -60,7 +60,12 @@ func main() {
         USERS = map[string]*UserInfo{}
         USERS_LOCK.Unlock()
         replica.ResetServers()
-        replica.DetermineMaster(portChannel, userChannel, &USERS, USERS_LOCK)
+        go replica.DetermineMaster(portChannel, userChannel, &USERS, USERS_LOCK)
+        <-portChannel
+        for uInfo := range userChannel {
+            writeUser(&uInfo)
+            USERS[uInfo.Username] = &uInfo
+        }
         <-portChannel
         if replica.IsMaster {
             LOG[ERROR].Println("double resolve to master, unable to listen", err)
