@@ -49,7 +49,7 @@ func (replica *ReplicaInfo) DetermineMaster(portChannel chan int, userChannel ch
 		replica.serverMutex.Unlock()
 
         replica.IsMaster = true
-        replica.id = 1
+        replica.id = 5001
         replica.Port = 5000
 
 		portChannel <- 0

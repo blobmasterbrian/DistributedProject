@@ -46,10 +46,9 @@ func main() {
             panic("Server insists it is the master when it is not")
         }
 
-        uInfo, ok := <- userChannel
-        for ok {
+        for uInfo := range userChannel {
             writeUser(uInfo)
-            uInfo, ok = <- userChannel
+            USERS[uInfo.Username] = uInfo
         }
 
         server, err = net.Listen("tcp", ":" + strconv.Itoa(replica.Port))
