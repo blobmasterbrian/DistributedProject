@@ -46,7 +46,7 @@ func (replica *ReplicaInfo) ResetServers() {
 	replica.serverMutex.Unlock()
 }
 
-func (replica *ReplicaInfo) DetermineMaster(portChannel chan int, userChannel chan *UserInfo, users *map[string]*UserInfo, usersLock *sync.RWMutex) {
+func (replica *ReplicaInfo) DetermineMaster(portChannel chan int, userChannel chan UserInfo, users *map[string]*UserInfo, usersLock *sync.RWMutex) {
 	conn, err := net.Dial("tcp", ":4000")
 	//if we are the master
 	if err != nil {
@@ -84,10 +84,10 @@ func (replica *ReplicaInfo) DetermineMaster(portChannel chan int, userChannel ch
 	portChannel <- 0
 
 	uInfo := NewUserInfo("","")
-	for decoder.Decode(uInfo) != nil {
-		userChannel <- uInfo
+	for decoder.Decode(uInfo) == nil {
+		userChannel <- *uInfo
 	}
-	close(userChannel)
+    close(userChannel)
     portChannel <- 0
 
 	conn.Close()
@@ -183,7 +183,7 @@ func (replica *ReplicaInfo) acceptNewServers(users *map[string]*UserInfo, usersL
         encoder.Encode(request)
         usersLock.RLock()
         for _, user := range *users {
-            err = encoder.Encode(user)
+            err = encoder.Encode(*user)
             if err != nil {
                 replica.LOG[ERROR].Println(StatusText(StatusEncodeError), err)
             }

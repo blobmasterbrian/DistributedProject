@@ -36,15 +36,15 @@ func main() {
     replica := NewReplica()
 
     portChannel := make(chan int)
-    userChannel := make(chan *UserInfo)
+    userChannel := make(chan UserInfo)
     go replica.DetermineMaster(portChannel, userChannel, &USERS, USERS_LOCK)
     <-portChannel
     if replica.IsMaster {
         loadUsers()
     } else {
         for uInfo := range userChannel {
-            writeUser(uInfo)
-            USERS[uInfo.Username] = uInfo
+            writeUser(&uInfo)
+            USERS[uInfo.Username] = &uInfo
         }
     }
     <-portChannel
