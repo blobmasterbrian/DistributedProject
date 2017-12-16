@@ -132,6 +132,23 @@ func (replica *ReplicaInfo) sendPings() {
 	}
 }
 
+func (replica *ReplicaInfo) AcceptPing(master int) {
+    if master != replica.masterId {
+        replica.masterId = master
+        found := false
+        replica.serverMutex.Lock()
+        defer replica.serverMutex.Unlock()
+        for _, port := range replica.activeServers {
+            if port == master {
+                found = true
+            }
+        }
+        if !found {
+            replica.activeServers = append(replica.activeServers, master)
+        }
+    }
+}
+
 func (replica *ReplicaInfo) PropagateRequest(request CommandRequest) {
     replica.LOG[INFO].Println("Propagating request", request.CommandCode)
     replica.serverMutex.Lock()
