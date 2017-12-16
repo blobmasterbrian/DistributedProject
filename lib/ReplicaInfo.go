@@ -229,12 +229,12 @@ func (replica *ReplicaInfo) acceptNewServers(users *map[string]*UserInfo, usersL
 }
 
 func (replica *ReplicaInfo) sendNewServer(newId int) {
-    replica.LOG[INFO].Println("Send new Server")
+    replica.LOG[INFO].Println("Send new server", newId)
     for i, serverId := range replica.activeServers {
-        replica.LOG[INFO].Println("replica id:", replica.id, "port", serverId)
         if serverId == replica.id || serverId == newId{
             continue
         }
+		replica.LOG[INFO].Println("replica id:", replica.id, "port", serverId)
 		replica.serverMutex.Lock()
 		conn, err := net.Dial("tcp", ":" + strconv.Itoa(serverId))
 		if err != nil {
@@ -260,12 +260,12 @@ func (replica *ReplicaInfo) sendNewServer(newId int) {
 }
 
 func (replica *ReplicaInfo) RemoveDeadServer(deadId int) {
-	replica.LOG[INFO].Println("Send dead server")
+	replica.LOG[INFO].Println("Send dead server", deadId)
 	for _, port := range replica.activeServers {
-		replica.LOG[INFO].Println("replica id:", replica.id, "port", port)
 		if port == replica.id || port == deadId{
 			continue
 		}
+		replica.LOG[INFO].Println("replica id:", replica.id, "port", port)
 		replica.serverMutex.Lock()
 		conn, err := net.Dial("tcp", ":" + strconv.Itoa(port))
 		if err != nil {
