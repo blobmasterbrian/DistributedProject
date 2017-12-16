@@ -100,7 +100,6 @@ func main() {
                 <-masterChan  // wait for a master to be chosen
                 if replica.IsMaster {
                     server.Close()
-                    replica.StartNewMaster(&USERS, USERS_LOCK)
                     addr, err := net.ResolveTCPAddr("tcp", "127.0.0.1:" + strconv.Itoa(replica.Port))
                     if err != nil {
                         LOG[WARNING].Println("TCPAddr struct could not be created", err)
@@ -122,6 +121,8 @@ func main() {
                             }
                         }
                         portChannel <- 0  // make replica wait for load users to run
+                    } else {
+                        replica.StartNewMaster(&USERS, USERS_LOCK)
                     }
                 } else {
                     LOG[INFO].Println("Master is chosen, accepting new commands")
