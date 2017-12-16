@@ -404,6 +404,12 @@ func clearCache(w http.ResponseWriter) {
 func sendCommand(command CommandRequest) *CommandResponse {
     conn, err := net.Dial("tcp", "127.0.0.1:5000")
     if err != nil {
+        LOG[ERROR].Println(StatusText(StatusConnectionError), err, "retrying...")
+        //sleep to allow some time for new master startup
+        time.Sleep(5* time.Second)
+        conn, err = net.Dial("tcp", "127.0.0.1:5000")
+    }
+    if err != nil {
         LOG[ERROR].Println(StatusText(StatusConnectionError), err)
         return nil
     }
