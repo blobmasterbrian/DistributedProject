@@ -12,9 +12,9 @@ import (
     "time"
 )
 
-var USERS_LOCK = &sync.RWMutex{}
-var USERS = map[string]*UserInfo{}      // Map of all users
-var LOG map[int]*log.Logger
+var USERS_LOCK = &sync.RWMutex{}    // Lock for user map
+var USERS = map[string]*UserInfo{}  // Map of all users
+var LOG map[int]*log.Logger         // Logger for backend
 
 func main() {
     if _, err := os.Stat("../../log"); os.IsNotExist(err) {
@@ -25,7 +25,7 @@ func main() {
     }
     LOG = InitLog("../../log/backend.log")
 
-    //register for encoding and decoding struct values within data types
+    // Register for encoding and decoding struct values within data types
     gob.Register([]Post{})
     gob.Register(struct{Username, Password string}{})
     gob.Register(struct{Username1, Username2 string}{})
@@ -35,10 +35,10 @@ func main() {
 
     replica := NewReplica()
 
-    portChannel := make(chan int)
+    infoChannel := make(chan int)
     userChannel := make(chan UserInfo)
-    go replica.DetermineMaster(portChannel, userChannel, &USERS, USERS_LOCK)
-    <-portChannel  // wait for replica method to set IsMaster
+    go replica.DetermineMaster(infoChannel, userChannel, &USERS, USERS_LOCK)
+    <-infoChannel  // Wait for replica method to set IsMaster
     if replica.IsMaster {
         loadUsers()
     } else {
@@ -47,7 +47,7 @@ func main() {
             USERS[uInfo.Username] = &uInfo
         }
     }
-    portChannel <- 0  // make replica wait for load users to run
+    infoChannel <- 0  // Make replica wait for load users to run
 
     addr, err := net.ResolveTCPAddr("tcp", "127.0.0.1:" + strconv.Itoa(replica.Port))
     if err != nil {
@@ -61,13 +61,13 @@ func main() {
         USERS_LOCK.Unlock()
         replica.ResetServers()
         userChannel = make(chan UserInfo)
-        go replica.DetermineMaster(portChannel, userChannel, &USERS, USERS_LOCK)
-        <-portChannel
+        go replica.DetermineMaster(infoChannel, userChannel, &USERS, USERS_LOCK)
+        <-infoChannel
         for uInfo := range userChannel {
             writeUser(&uInfo)
             USERS[uInfo.Username] = &uInfo
         }
-        portChannel <- 0
+        infoChannel <- 0
         if replica.IsMaster {
             LOG[ERROR].Println("double resolve to master, unable to listen", err)
             panic("Server insists it is the master when it is not")
@@ -84,7 +84,8 @@ func main() {
         }
     }
 
-    //main loop for accepting and running web server commands
+    // Main loop for accepting and running web server commands
+    // Replicas hold an election upon time out
     for {
         if !replica.IsMaster {
             server.SetDeadline(time.Now().Add(3 * time.Second))
@@ -110,8 +111,8 @@ func main() {
                     }
                     if err != nil {
                         userChannel = make(chan UserInfo)
-                        go replica.DetermineMaster(portChannel, userChannel, &USERS, USERS_LOCK)
-                        <-portChannel  // wait for replica method to set IsMaster
+                        go replica.DetermineMaster(infoChannel, userChannel, &USERS, USERS_LOCK)
+                        <-infoChannel  // wait for replica method to set IsMaster
                         if replica.IsMaster {
                             loadUsers()
                         } else {
@@ -120,7 +121,7 @@ func main() {
                                 USERS[uInfo.Username] = &uInfo
                             }
                         }
-                        portChannel <- 0  // make replica wait for load users to run
+                        infoChannel <- 0  // make replica wait for load users to run
                     } else {
                         replica.StartNewMaster(&USERS, USERS_LOCK)
                     }
@@ -183,13 +184,13 @@ func loadUsers() {
     }
 }
 
-//run command is a basic switch case statement, running required functions based off
-//command codes.  A server encoder is created and passed on to the functions so they can respond.
+// Run command is a basic switch case statement, running required functions based off
+// command codes. A server encoder is created and passed on to the functions so they can respond.
 func runCommand(conn net.Conn, request CommandRequest, replica *ReplicaInfo) {
     LOG[INFO].Println("Running command ", request.CommandCode)
     serverEncoder := gob.NewEncoder(conn)
     switch request.CommandCode {
-        case CommandSignup:  // map int to function pointer no case switch necessary
+        case CommandSignup:  // TODO: Map int to function pointer no case switch necessary
             signup(serverEncoder, request)
         case CommandDeleteAccount:
             deleteAccount(serverEncoder, request)
@@ -238,13 +239,13 @@ func runCommand(conn net.Conn, request CommandRequest, replica *ReplicaInfo) {
 }
 
 /*
-    signup takes in a decoder as an argument with an expected decode resulting in a 
-    username password combo.
-    signup returns true or false representing whether a user was created successfully
+    Signup takes in a decoder as an argument with an expected decode resulting in a
+    username password combo
+    Signup returns true or false representing whether a user was created successfully
 
-    signup then tries to create a file ../../data/*username* and encode a new UserInfo
-    object into the file.
-    if this is successful, the new UserInfo object is added to the USERS map 
+    Signup then tries to create a file ../../data/*username* and encode a new UserInfo
+    object into the file
+    If this is successful, the new UserInfo object is added to the USERS map
 */
 func signup(serverEncoder *gob.Encoder, request CommandRequest) {
     userAndPass, ok := request.Data.(struct{Username, Password string})
@@ -272,10 +273,10 @@ func signup(serverEncoder *gob.Encoder, request CommandRequest) {
     serverEncoder.Encode(CommandResponse{true, StatusAccepted, nil})
 }
 
-//delete account takes a username, then finds the corresponding user
-//It then calls unfollow on the current user and has the current user unfollow
-//all users it is currently following to remove dead references
-//it then removes the user from the map and deletes the user from 
+// Delete account takes a username, then finds the corresponding user
+// It then calls unfollow on the current user and has the current user unfollow
+// all users it is currently following to remove dead references
+// It then removes the user from the map and deletes the user from
 func deleteAccount(serverEncoder *gob.Encoder, request CommandRequest) {
     username, ok := request.Data.(string)
     if !ok {
@@ -305,9 +306,9 @@ func deleteAccount(serverEncoder *gob.Encoder, request CommandRequest) {
     serverEncoder.Encode(CommandResponse{true, StatusAccepted, nil})
 }
 
-//login takes a username password combo from the command request
-//it then checks these values against the values stored in the map and returns
-//relivant success info
+// Login takes a username password combo from the command request
+// It then checks these values against the values stored in the map and returns
+// relevant success info
 func login(serverEncoder *gob.Encoder, request CommandRequest) {
     userAndPass, ok := request.Data.(struct{Username, Password string})
     if !ok {
@@ -335,8 +336,8 @@ func login(serverEncoder *gob.Encoder, request CommandRequest) {
  }
 
 
-//follow takes two strings from the command response and then calls follow on the first to the second
-//it returns relivant error information if the follow fails or one of the users does not exist
+// Follow takes two strings from the command response and then calls follow on the first to the second
+// It returns relevant error information if the follow fails or one of the users does not exist
 func follow(serverEncoder *gob.Encoder, request CommandRequest) {
     users, ok := request.Data.(struct{Username1, Username2 string})
     if !ok {
@@ -365,8 +366,8 @@ func follow(serverEncoder *gob.Encoder, request CommandRequest) {
     serverEncoder.Encode(CommandResponse{true, StatusAccepted, nil})
 }
 
-//follow is similar to above but with reverse functionality, kept as separate functions
-//for ease of front end data sending
+// Unfollow is similar to above but with reverse functionality, kept as separate functions
+// for ease of front end data sending
 func unfollow(serverEncoder *gob.Encoder, request CommandRequest) {
     users, ok := request.Data.(struct{Username1, Username2 string})
     if !ok {
@@ -396,9 +397,9 @@ func unfollow(serverEncoder *gob.Encoder, request CommandRequest) {
 }
 
 
-//Search takes a command request with two strings: the searcher username and the target username
-//It then performs the specified search and returns if the user is following the target
-//it returns relivant error info if one of the users does not exist
+// Search takes a command request with two strings: the searcher username and the target username
+// It then performs the specified search and returns if the user is following the target
+// It returns relivant error info if one of the users does not exist
 func search(serverEncoder *gob.Encoder, request CommandRequest) {
     username, ok := request.Data.(struct{Searcher, Target string})
     if !ok {
@@ -424,9 +425,9 @@ func search(serverEncoder *gob.Encoder, request CommandRequest) {
     USERS_LOCK.RUnlock()
 }
 
-//Chirp takes a command request with a Username Post string combo and calls the corrisponding
-//write Post function for the specified user.  It writes the change to a file and then
-//responds with CommandResponse containing corresponding error info
+// Chirp takes a command request with a Username Post string combo and calls the corresponding
+// write Post function for the specified user
+// It writes the change to a file and then responds with CommandResponse containing corresponding error info
 func chirp(serverEncoder *gob.Encoder, request CommandRequest) {
     postInfo, ok := request.Data.(struct{Username, Post string})
     if !ok {
@@ -449,9 +450,9 @@ func chirp(serverEncoder *gob.Encoder, request CommandRequest) {
     serverEncoder.Encode(CommandResponse{true, StatusAccepted, nil})
 }
 
-//Get chirps takes in a CommandRequest which contains a string that represents the user that
-//the frontend is trying to get the chrips of.  the corresponding call to getChrips is called
-//and are encoded back to the front end
+// Get chirps takes in a CommandRequest which contains a string that represents the user that
+// the frontend is trying to get the chirps of
+// The corresponding call to getChirps is called and are encoded back to the front end
 func getChrips(serverEncoder *gob.Encoder, request CommandRequest) {
     username, ok := request.Data.(string)
     if !ok {
@@ -471,8 +472,8 @@ func getChrips(serverEncoder *gob.Encoder, request CommandRequest) {
     serverEncoder.Encode(CommandResponse{true, StatusAccepted, user.GetAllChirps(USERS)})
 }
 
-//writeUser takes in a user info pointer and writes the user info to a file using gob
-//there is no return value but logs are created on error
+// WriteUser takes in a user info pointer and writes the user info to a file using gob
+// There is no return value but logs are created on error
 func writeUser(user *UserInfo) {
     user.Lock()
     defer user.Unlock()

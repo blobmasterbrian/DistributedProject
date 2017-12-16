@@ -20,8 +20,8 @@ func InitLog(path string) map[int]*log.Logger {
     }
     logs := make(map[int]*log.Logger)  // creates map
 
-    logs[INFO] = log.New(file, "INFO:       ", log.Ldate|log.Ltime|log.Lshortfile)        // creates info logger association in map
+    logs[INFO]    = log.New(file, "INFO:    ", log.Ldate|log.Ltime|log.Lshortfile)  // creates info logger association in map
     logs[WARNING] = log.New(file, "WARNING: ", log.Ldate|log.Ltime|log.Lshortfile)  // creates warning logger association in map
-    logs[ERROR] = log.New(file, "ERROR:     ", log.Ldate|log.Ltime|log.Lshortfile)      // creates error logger association in map
+    logs[ERROR]   = log.New(file, "ERROR:  ", log.Ldate|log.Ltime|log.Lshortfile)   // creates error logger association in map
     return logs
 }

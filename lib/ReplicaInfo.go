@@ -20,7 +20,8 @@ type ReplicaInfo struct {
 	LOG           map[int]*log.Logger
 }
 
-//creates a new Replica Info object with dummy values for id
+// Creates a new Replica Info object with dummy values for id
+// Values will be set in DetermineMaster
 func NewReplica() ReplicaInfo {
     gob.Register([]Post{})
     gob.Register(struct{Username, Password string}{})
@@ -41,18 +42,19 @@ func NewReplica() ReplicaInfo {
 	}
 }
 
-//clears the list of active servers
+// Clears the list of active servers, used if a replica accidentally thinks it is a master and restarts
 func (replica *ReplicaInfo) ResetServers() {
 	replica.serverMutex.Lock()
 	replica.activeServers = []int{}
 	replica.serverMutex.Unlock()
 }
 
-//Checks to see if there is a current running master server.  If there is not, set yourself as the master server
-//If there is a master, query the master for user information and active server information
-func (replica *ReplicaInfo) DetermineMaster(portChannel chan int, userChannel chan UserInfo, users *map[string]*UserInfo, usersLock *sync.RWMutex) {
-	conn, err := net.Dial("tcp", ":4000")
-	//if we are the master
+// Checks to see if there is a current running master server.  If there is not, set yourself as the master server
+// If there is a master, query the master for user information and active server information
+func (replica *ReplicaInfo) DetermineMaster(infoChannel chan int, userChannel chan UserInfo, users *map[string]*UserInfo, usersLock *sync.RWMutex) {
+	conn, err := net.Dial("tcp", ":4000")  // If a master is running we should be able to connect
+
+	// Cannot connect, we are the master
 	if err != nil {
 		replica.LOG[INFO].Println("new master startup")
 
@@ -64,15 +66,14 @@ func (replica *ReplicaInfo) DetermineMaster(portChannel chan int, userChannel ch
         replica.id = 5001
         replica.Port = 5000
 
-	    //let backend know IsMaster is set
-        portChannel <- 0
-        //wait until load users is complete
-        <-portChannel
+        infoChannel <- 0  // Let backend know IsMaster is set
+        <-infoChannel     // Wait until load users is complete
 
         go replica.acceptNewServers(users, usersLock)
 		go replica.sendPings()
 		return
 	}
+	// We are not master, decode information to set values
 	decoder := gob.NewDecoder(conn)
 	var request CommandRequest
 	err = decoder.Decode(&request)
@@ -85,26 +86,27 @@ func (replica *ReplicaInfo) DetermineMaster(portChannel chan int, userChannel ch
 	replica.Port = IdAndServerList.Id
 	replica.activeServers = IdAndServerList.Serverlist
 
-	portChannel <- 0  // let backend know replica info has been set
+	infoChannel <- 0  // Let backend know replica info has been set
 
+	// Decode each user to copy into filesystem
 	uInfo := NewUserInfo("","")
 	for decoder.Decode(uInfo) == nil {
-		userChannel <- *uInfo
+		userChannel <- *uInfo  // Send to server.go to call WriteUser function
 	}
-    close(userChannel)
-    <-portChannel  // wait for backend to finish loading users
+    close(userChannel)  // Let backend know no more users to copy
+    <-infoChannel       // Wait for backend to finish loading users
 
 	conn.Close()
 }
 
-//spawns off goroutines for sending pings to other servers and to accept new servers
+// Spawns off goroutines for sending pings to other servers and to accept new servers
 func (replica *ReplicaInfo) StartNewMaster(users *map[string]*UserInfo, usersLock *sync.RWMutex) {
 	replica.LOG[INFO].Println("StartNewMasterRunning")
 	go replica.sendPings()
 	go replica.acceptNewServers(users, usersLock)
 }
 
-//send pings to active servers to show that the master is still running
+// Called by master to send pings to active servers to show that the master is still running
 func (replica *ReplicaInfo) sendPings() {
 	for {
 		time.Sleep(1 * time.Second)
@@ -136,12 +138,12 @@ func (replica *ReplicaInfo) sendPings() {
 		}
 		replica.serverMutex.Unlock()
 		for _, dead := range deadServers {
-			replica.RemoveDeadServer(dead)
+			replica.removeDeadServer(dead)
 		}
 	}
 }
 
-//accept a ping from the master and set the master if it is different from the previously stored master
+// Called by replicas to accept a ping from the master and set the master if it is different from the previously stored master
 func (replica *ReplicaInfo) AcceptPing(master int) {
     if master != replica.masterId {
         replica.masterId = master
@@ -159,8 +161,8 @@ func (replica *ReplicaInfo) AcceptPing(master int) {
     }
 }
 
-//send a command request from the master to the replica servers, the master behaves as the frontend would to the
-//master server, this ensures data consistancy between the master and the replicas
+// Called by master to send a command request from the master to the replica servers, the master behaves as
+// the frontend would to the master server, this ensures data consistency between the master and the replicas
 func (replica *ReplicaInfo) PropagateRequest(request CommandRequest) {
     replica.LOG[INFO].Println("Propagating request", request.CommandCode)
     var deadServers []int
@@ -199,10 +201,11 @@ func (replica *ReplicaInfo) PropagateRequest(request CommandRequest) {
     }
     replica.serverMutex.Unlock()
     for _, dead := range deadServers {
-    	replica.RemoveDeadServer(dead)
+    	replica.removeDeadServer(dead)
 	}
 }
 
+// Called by master to open a port necessary for passing information to a newly started server
 func (replica *ReplicaInfo) acceptNewServers(users *map[string]*UserInfo, usersLock *sync.RWMutex) {
 	server, err := net.Listen("tcp", ":4000")
 	if err != nil {
@@ -244,6 +247,7 @@ func (replica *ReplicaInfo) acceptNewServers(users *map[string]*UserInfo, usersL
 	}
 }
 
+// Called by master to update replicas of a newly spawned replica
 func (replica *ReplicaInfo) sendNewServer(newId int) {
     replica.LOG[INFO].Println("Send new server", newId)
     var deadServers []int
@@ -273,11 +277,12 @@ func (replica *ReplicaInfo) sendNewServer(newId int) {
     }
     replica.serverMutex.Unlock()
     for _, dead := range deadServers {
-    	replica.RemoveDeadServer(dead)
+    	replica.removeDeadServer(dead)
 	}
 }
 
-func (replica *ReplicaInfo) RemoveDeadServer(deadId int) {
+// Called by master to remove the dead server from active servers list and notify replicas of server death
+func (replica *ReplicaInfo) removeDeadServer(deadId int) {
 	replica.LOG[INFO].Println("Send dead server", deadId)
 
 	replica.serverMutex.Lock()
@@ -297,7 +302,7 @@ func (replica *ReplicaInfo) RemoveDeadServer(deadId int) {
 		if err != nil {
 			conn, err = net.Dial("tcp", ":" + strconv.Itoa(serverId))
 		}
-		if err != nil {  // server may be dead avoid recursing and detect again later
+		if err != nil {  // Server may be dead avoid recursing and detect again later
 			continue
 		}
 
@@ -311,6 +316,7 @@ func (replica *ReplicaInfo) RemoveDeadServer(deadId int) {
 	}
 }
 
+// Function to be run by replicas on new server spawn
 func (replica *ReplicaInfo) OnNewServer(newId int) {
 	replica.LOG[INFO].Println("New Server:", newId)
     replica.serverMutex.Lock()
@@ -319,6 +325,7 @@ func (replica *ReplicaInfo) OnNewServer(newId int) {
     replica.LOG[INFO].Println("Updated Server List:", replica.activeServers)
 }
 
+// Function to be run by replicas on death of a server
 func (replica *ReplicaInfo) OnDeadServer(deadId int) {
 	replica.LOG[WARNING].Println("Dead Server:", deadId)
 	replica.serverMutex.Lock()
@@ -331,6 +338,8 @@ func (replica *ReplicaInfo) OnDeadServer(deadId int) {
 	replica.LOG[INFO].Println("Updated Server List:", replica.activeServers)
 }
 
+// Called by replicas to hold an election and determines if it should be the new master or not
+// If perceived new master also fails this method will be called again upon a second timeout
 func (replica *ReplicaInfo) HoldElection(masterChan chan int) {
 	i := 0
 	replica.serverMutex.Lock()
@@ -354,6 +363,7 @@ func (replica *ReplicaInfo) HoldElection(masterChan chan int) {
 	masterChan <- 0
 }
 
+// Called by master to generate a new Id for a newly spawned server
 func (replica *ReplicaInfo) generateNewId() int {
     max := replica.activeServers[0]
     for _, elem := range replica.activeServers {

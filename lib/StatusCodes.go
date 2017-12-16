@@ -1,6 +1,7 @@
 package lib
 
 // COMMANDS (frontend to backend server commands)
+// With replication, the master will also send these commands to replicas
 const (
 	CommandSignup = iota
 	CommandDeleteAccount
