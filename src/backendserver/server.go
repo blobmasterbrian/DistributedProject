@@ -194,12 +194,20 @@ func runCommand(conn net.Conn, request CommandRequest, replica *ReplicaInfo) {
                 replica.AcceptPing(id)
             }
         case CommandNewServer:
-            LOG[INFO].Println("New Server")
             id, ok := request.Data.(int)
+            LOG[INFO].Println("New Server", id)
             if !ok {
                 LOG[ERROR].Println(StatusText(StatusDecodeError))
             } else {
                 replica.OnNewServer(id)
+            }
+        case CommandDeadServer:
+            id, ok := request.Data.(int)
+            LOG[INFO].Println("Dead Server")
+            if !ok {
+                LOG[ERROR].Println(StatusText(StatusDecodeError))
+            } else {
+                replica.OffDeadServer(id)
             }
         case CommandConstructFilesystem:
             LOG[WARNING].Println("Filesystem Already Constructed")

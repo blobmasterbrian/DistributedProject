@@ -13,6 +13,7 @@ const (
 	CommandSendPing
 	CommandConstructFilesystem
     CommandNewServer
+    CommandDeadServer
 )
 
 // STATUS CODES (Status Codes for frontend/backend communication)
