@@ -155,7 +155,7 @@ func (replica *ReplicaInfo) PropagateRequest(request CommandRequest) {
     replica.serverMutex.Lock()
     defer replica.serverMutex.Unlock()
     for i, port := range replica.activeServers {
-        if port == replica.Port {
+        if port == replica.id {
             continue
         }
 
