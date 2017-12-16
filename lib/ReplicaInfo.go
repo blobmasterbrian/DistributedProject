@@ -103,24 +103,22 @@ func (replica *ReplicaInfo) sendPings() {
 	for {
 		time.Sleep(1 * time.Second)
 		replica.LOG[INFO].Println("Initiate Pinging", replica.activeServers)
-		for i, serverId := range replica.activeServers {
+		var deadServers []int
+		replica.serverMutex.Lock()
+		for _, serverId := range replica.activeServers {
             if serverId == replica.id {
                 continue
             }
 			replica.LOG[INFO].Println("Master", replica.id, "Pinging server at port", serverId)
-			replica.serverMutex.Lock()
 			conn, err := net.Dial("tcp", ":" + strconv.Itoa(serverId))
 			if err != nil {
 				conn, err = net.Dial("tcp", ":" + strconv.Itoa(serverId))
 			}
 			if err != nil {
 				replica.LOG[WARNING].Println("Server at port", serverId, "is dead")
-				replica.activeServers = append(replica.activeServers[:i], replica.activeServers[i+1:]...)
-				replica.RemoveDeadServer(serverId)
-				replica.serverMutex.Unlock()
+				deadServers = append(deadServers, serverId)
 				continue
 			}
-			replica.serverMutex.Unlock()
 
 			command := CommandRequest{CommandSendPing, replica.id}
 			encoder := gob.NewEncoder(conn)
@@ -129,6 +127,10 @@ func (replica *ReplicaInfo) sendPings() {
 				replica.LOG[ERROR].Println(StatusText(StatusEncodeError), err)
 			}
 			conn.Close()
+		}
+		replica.serverMutex.Unlock()
+		for _, dead := range deadServers {
+			replica.RemoveDeadServer(dead)
 		}
 	}
 }
@@ -152,9 +154,9 @@ func (replica *ReplicaInfo) AcceptPing(master int) {
 
 func (replica *ReplicaInfo) PropagateRequest(request CommandRequest) {
     replica.LOG[INFO].Println("Propagating request", request.CommandCode)
+    var deadServers []int
     replica.serverMutex.Lock()
-    defer replica.serverMutex.Unlock()
-    for i, serverId := range replica.activeServers {
+    for _, serverId := range replica.activeServers {
         if serverId == replica.id {
             continue
         }
@@ -166,8 +168,7 @@ func (replica *ReplicaInfo) PropagateRequest(request CommandRequest) {
         }
         if err != nil {
             replica.LOG[WARNING].Println("Server at port", serverId, "is dead")
-            replica.activeServers = append(replica.activeServers[:i], replica.activeServers[i+1:]...)
-            replica.RemoveDeadServer(serverId)
+            deadServers = append(deadServers, serverId)
             continue
         }
         encoder := gob.NewEncoder(conn)
@@ -187,6 +188,10 @@ func (replica *ReplicaInfo) PropagateRequest(request CommandRequest) {
         }
         conn.Close()
     }
+    replica.serverMutex.Unlock()
+    for _, dead := range deadServers {
+    	replica.RemoveDeadServer(dead)
+	}
 }
 
 func (replica *ReplicaInfo) acceptNewServers(users *map[string]*UserInfo, usersLock *sync.RWMutex) {
@@ -203,6 +208,7 @@ func (replica *ReplicaInfo) acceptNewServers(users *map[string]*UserInfo, usersL
 		}
         //send info
         newId := replica.generateNewId()
+        replica.serverMutex.Lock()
         replica.activeServers = append(replica.activeServers, newId)
 
         request := CommandRequest{CommandConstructFilesystem, struct {
@@ -212,6 +218,7 @@ func (replica *ReplicaInfo) acceptNewServers(users *map[string]*UserInfo, usersL
 			newId,
 			replica.activeServers,
 		}}
+		replica.serverMutex.Unlock()
 
         encoder := gob.NewEncoder(conn)
         encoder.Encode(request)
@@ -230,7 +237,9 @@ func (replica *ReplicaInfo) acceptNewServers(users *map[string]*UserInfo, usersL
 
 func (replica *ReplicaInfo) sendNewServer(newId int) {
     replica.LOG[INFO].Println("Send new server", newId)
-    for i, serverId := range replica.activeServers {
+    var deadServers []int
+    replica.serverMutex.Lock()
+    for _, serverId := range replica.activeServers {
         if serverId == replica.id || serverId == newId{
             continue
         }
@@ -242,12 +251,9 @@ func (replica *ReplicaInfo) sendNewServer(newId int) {
 		}
 		if err != nil {
 			replica.LOG[WARNING].Println("Server at port", serverId, "is dead")
-			replica.activeServers = append(replica.activeServers[:i], replica.activeServers[i+1:]...)
-			replica.RemoveDeadServer(serverId)
-			replica.serverMutex.Unlock()
+			deadServers = append(deadServers, serverId)
 			continue
 		}
-		replica.serverMutex.Unlock()
 
 		command := CommandRequest{CommandNewServer, newId}
 		encoder := gob.NewEncoder(conn)
@@ -257,25 +263,35 @@ func (replica *ReplicaInfo) sendNewServer(newId int) {
 	    }
 	    conn.Close()
     }
+    replica.serverMutex.Unlock()
+    for _, dead := range deadServers {
+    	replica.RemoveDeadServer(dead)
+	}
 }
 
 func (replica *ReplicaInfo) RemoveDeadServer(deadId int) {
 	replica.LOG[INFO].Println("Send dead server", deadId)
-	for _, port := range replica.activeServers {
-		if port == replica.id || port == deadId{
+
+	replica.serverMutex.Lock()
+	defer replica.serverMutex.Unlock()
+	for i, serverId := range replica.activeServers {
+		if serverId == deadId {
+			replica.activeServers = append(replica.activeServers[:i], replica.activeServers[i+1:]...)
+		}
+	}
+
+	for _, serverId := range replica.activeServers {
+		if serverId == replica.id || serverId == deadId {
 			continue
 		}
-		replica.LOG[INFO].Println("replica id:", replica.id, "port", port)
-		replica.serverMutex.Lock()
-		conn, err := net.Dial("tcp", ":" + strconv.Itoa(port))
+		replica.LOG[INFO].Println("replica id:", replica.id, "port", serverId)
+		conn, err := net.Dial("tcp", ":" + strconv.Itoa(serverId))
 		if err != nil {
-			conn, err = net.Dial("tcp", ":" + strconv.Itoa(port))
+			conn, err = net.Dial("tcp", ":" + strconv.Itoa(serverId))
 		}
 		if err != nil {  // server may be dead avoid recursing and detect again later
-			replica.serverMutex.Unlock()
 			continue
 		}
-		replica.serverMutex.Unlock()
 
 		command := CommandRequest{CommandDeadServer, deadId}
 		encoder := gob.NewEncoder(conn)
