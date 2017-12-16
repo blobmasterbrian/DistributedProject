@@ -240,7 +240,7 @@ func (replica *ReplicaInfo) sendNewServer(newId int) {
     var deadServers []int
     replica.serverMutex.Lock()
     for _, serverId := range replica.activeServers {
-        if serverId == replica.id || serverId == newId{
+        if serverId == replica.id || serverId == newId {
             continue
         }
 		replica.LOG[INFO].Println("replica id:", replica.id, "port", serverId)
