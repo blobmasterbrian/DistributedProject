@@ -292,6 +292,7 @@ func (replica *ReplicaInfo) OnNewServer(newId int) {
     replica.serverMutex.Lock()
     replica.activeServers = append(replica.activeServers, newId)
     replica.serverMutex.Unlock()
+    replica.LOG[INFO].Println("Updated Server List:", replica.activeServers)
 }
 
 func (replica *ReplicaInfo) OnDeadServer(deadId int) {
@@ -303,6 +304,7 @@ func (replica *ReplicaInfo) OnDeadServer(deadId int) {
 		}
 	}
 	replica.serverMutex.Unlock()
+	replica.LOG[INFO].Println("Updated Server List:", replica.activeServers)
 }
 
 func (replica *ReplicaInfo) HoldElection(masterChan chan int) {
