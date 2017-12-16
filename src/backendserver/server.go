@@ -123,7 +123,7 @@ func main() {
         if replica.IsMaster {
             replica.PropagateRequest(request)
         }
-        go runCommand(conn, request)
+        go runCommand(conn, request, &replica)
     }
 }
 
@@ -165,7 +165,7 @@ func loadUsers() {
 
 //run command is a basic switch case statement, running required functions based off
 //command codes.  A server encoder is created and passed on to the functions so they can respond.
-func runCommand(conn net.Conn, request CommandRequest) {
+func runCommand(conn net.Conn, request CommandRequest, replica *ReplicaInfo) {
     LOG[INFO].Println("Running command ", request.CommandCode)
     serverEncoder := gob.NewEncoder(conn)
     switch request.CommandCode {
@@ -187,6 +187,12 @@ func runCommand(conn net.Conn, request CommandRequest) {
             getChrips(serverEncoder, request)
         case CommandSendPing:
             LOG[INFO].Println("Ping Received from Master")
+            id, ok := request.Data.(int)
+            if !ok {
+                LOG[ERROR].Println(StatusText(StatusDecodeError))
+            } else {
+                replica.AcceptPing(id)
+            }
         case CommandConstructFilesystem:
             LOG[WARNING].Println("Filesystem Already Constructed")
         default:
