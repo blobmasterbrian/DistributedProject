@@ -294,7 +294,7 @@ func (replica *ReplicaInfo) OnNewServer(newId int) {
     replica.serverMutex.Unlock()
 }
 
-func (replica *ReplicaInfo) OffDeadServer(deadId int) {
+func (replica *ReplicaInfo) OnDeadServer(deadId int) {
 	replica.LOG[WARNING].Println("Dead Server:", deadId)
 	replica.serverMutex.Lock()
 	for i, elem := range replica.activeServers {

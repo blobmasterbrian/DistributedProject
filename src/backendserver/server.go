@@ -207,7 +207,7 @@ func runCommand(conn net.Conn, request CommandRequest, replica *ReplicaInfo) {
             if !ok {
                 LOG[ERROR].Println(StatusText(StatusDecodeError))
             } else {
-                replica.OffDeadServer(id)
+                replica.OnDeadServer(id)
             }
         case CommandConstructFilesystem:
             LOG[WARNING].Println("Filesystem Already Constructed")
