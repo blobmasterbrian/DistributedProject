@@ -94,11 +94,11 @@ func main() {
             if nErr.Timeout() {
                 LOG[WARNING].Println("Master Is Ded, Running Election")
                 masterChan := make(chan int)
-                replica.HoldElection(masterChan)
+                go replica.HoldElection(masterChan)
                 <-masterChan  // wait for a master to be chosen
                 if replica.IsMaster {
-                    replica.StartNewMaster(&USERS, USERS_LOCK)
                     server.Close()
+                    replica.StartNewMaster(&USERS, USERS_LOCK)
                     addr, err := net.ResolveTCPAddr("tcp", "127.0.0.1:" + strconv.Itoa(replica.Port))
                     if err != nil {
                         LOG[WARNING].Println("TCPAddr struct could not be created", err)

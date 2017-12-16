@@ -94,6 +94,7 @@ func (replica *ReplicaInfo) DetermineMaster(portChannel chan int, userChannel ch
 }
 
 func (replica *ReplicaInfo) StartNewMaster(users *map[string]*UserInfo, usersLock *sync.RWMutex) {
+	replica.LOG[INFO].Println("StartNewMasterRunning")
 	go replica.sendPings()
 	go replica.acceptNewServers(users, usersLock)
 }
@@ -217,6 +218,7 @@ func (replica *ReplicaInfo) acceptNewServers(users *map[string]*UserInfo, usersL
 
 func (replica *ReplicaInfo) HoldElection(masterChan chan int) {
 	i := 0
+	replica.serverMutex.Lock()
 	for replica.activeServers[i] != replica.masterId {
 		i++
 	}
@@ -227,6 +229,7 @@ func (replica *ReplicaInfo) HoldElection(masterChan chan int) {
 			min = elem
 		}
 	}
+	replica.serverMutex.Unlock()
 	if min == replica.id {
 		replica.LOG[INFO].Println("This replica is taking over as master")
 		replica.IsMaster = true
