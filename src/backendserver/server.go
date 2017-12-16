@@ -38,7 +38,7 @@ func main() {
     portChannel := make(chan int)
     userChannel := make(chan UserInfo)
     go replica.DetermineMaster(portChannel, userChannel, &USERS, USERS_LOCK)
-    <-portChannel
+    <-portChannel  // wait for replica method to set IsMaster
     if replica.IsMaster {
         loadUsers()
     } else {
@@ -47,7 +47,7 @@ func main() {
             USERS[uInfo.Username] = &uInfo
         }
     }
-    <-portChannel
+    portChannel <- 0  // make replica wait for load users to run
 
     addr, err := net.ResolveTCPAddr("tcp", "127.0.0.1:" + strconv.Itoa(replica.Port))
     if err != nil {
@@ -66,7 +66,7 @@ func main() {
             writeUser(&uInfo)
             USERS[uInfo.Username] = &uInfo
         }
-        <-portChannel
+        portChannel <- 0
         if replica.IsMaster {
             LOG[ERROR].Println("double resolve to master, unable to listen", err)
             panic("Server insists it is the master when it is not")
@@ -93,7 +93,21 @@ func main() {
             nErr := err.(*net.OpError)
             if nErr.Timeout() {
                 LOG[WARNING].Println("Master Is Ded, Running Election")
-                // election
+                masterChan := make(chan int)
+                replica.HoldElection(masterChan)
+                <-masterChan  // wait for a master to be chosen
+                if replica.IsMaster {
+                    replica.StartNewMaster(&USERS, USERS_LOCK)
+                    server.Close()
+                    addr, err := net.ResolveTCPAddr("tcp", "127.0.0.1:" + strconv.Itoa(replica.Port))
+                    if err != nil {
+                        LOG[WARNING].Println("TCPAddr struct could not be created", err)
+                    }
+                    server, err = net.ListenTCP("tcp", addr)
+                } else {
+                    LOG[INFO].Println("Master is chosen, accepting new commands")
+                }
+                continue
             }
             LOG[ERROR].Println(StatusText(StatusConnectionError), err)
             continue

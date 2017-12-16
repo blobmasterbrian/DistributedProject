@@ -63,7 +63,7 @@ func (replica *ReplicaInfo) DetermineMaster(portChannel chan int, userChannel ch
 	    //let backend know IsMaster is set
         portChannel <- 0
         //wait until load users is complete
-        portChannel <- 0
+        <-portChannel
 
         go replica.acceptNewServers(users, usersLock)
 		go replica.sendPings()
@@ -81,16 +81,21 @@ func (replica *ReplicaInfo) DetermineMaster(portChannel chan int, userChannel ch
 	replica.Port = IdAndServerList.Id
 	replica.activeServers = IdAndServerList.Serverlist
 
-	portChannel <- 0
+	portChannel <- 0  // let backend know replica info has been set
 
 	uInfo := NewUserInfo("","")
 	for decoder.Decode(uInfo) == nil {
 		userChannel <- *uInfo
 	}
     close(userChannel)
-    portChannel <- 0
+    <-portChannel  // wait for backend to finish loading users
 
 	conn.Close()
+}
+
+func (replica *ReplicaInfo) StartNewMaster(users *map[string]*UserInfo, usersLock *sync.RWMutex) {
+	go replica.sendPings()
+	go replica.acceptNewServers(users, usersLock)
 }
 
 func (replica *ReplicaInfo) sendPings() {
@@ -116,7 +121,7 @@ func (replica *ReplicaInfo) sendPings() {
 			}
 			replica.serverMutex.Unlock()
 
-			command := CommandRequest{CommandSendPing, nil}
+			command := CommandRequest{CommandSendPing, replica.id}
 			encoder := gob.NewEncoder(conn)
 			err = encoder.Encode(command)
 			if err != nil {
@@ -191,6 +196,26 @@ func (replica *ReplicaInfo) acceptNewServers(users *map[string]*UserInfo, usersL
         usersLock.RUnlock()
 		conn.Close()
 	}
+}
+
+func (replica *ReplicaInfo) HoldElection(masterChan chan int) {
+	i := 0
+	for replica.activeServers[i] != replica.masterId {
+		i++
+	}
+	replica.activeServers = append(replica.activeServers[:i],replica.activeServers[i+1:]...)
+	min := replica.activeServers[0]
+	for _, elem := range replica.activeServers {
+		if elem < min {
+			min = elem
+		}
+	}
+	if min == replica.id {
+		replica.LOG[INFO].Println("This replica is taking over as master")
+		replica.IsMaster = true
+		replica.Port = 5000
+	}
+	masterChan <- 0
 }
 
 func (replica *ReplicaInfo) generateNewId() int {
