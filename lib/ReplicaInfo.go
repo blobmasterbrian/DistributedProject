@@ -20,6 +20,7 @@ type ReplicaInfo struct {
 	LOG           map[int]*log.Logger
 }
 
+//creates a new Replica Info object with dummy values for id
 func NewReplica() ReplicaInfo {
     gob.Register([]Post{})
     gob.Register(struct{Username, Password string}{})
@@ -40,12 +41,15 @@ func NewReplica() ReplicaInfo {
 	}
 }
 
+//clears the list of active servers
 func (replica *ReplicaInfo) ResetServers() {
 	replica.serverMutex.Lock()
 	replica.activeServers = []int{}
 	replica.serverMutex.Unlock()
 }
 
+//Checks to see if there is a current running master server.  If there is not, set yourself as the master server
+//If there is a master, query the master for user information and active server information
 func (replica *ReplicaInfo) DetermineMaster(portChannel chan int, userChannel chan UserInfo, users *map[string]*UserInfo, usersLock *sync.RWMutex) {
 	conn, err := net.Dial("tcp", ":4000")
 	//if we are the master
@@ -93,12 +97,14 @@ func (replica *ReplicaInfo) DetermineMaster(portChannel chan int, userChannel ch
 	conn.Close()
 }
 
+//spawns off goroutines for sending pings to other servers and to accept new servers
 func (replica *ReplicaInfo) StartNewMaster(users *map[string]*UserInfo, usersLock *sync.RWMutex) {
 	replica.LOG[INFO].Println("StartNewMasterRunning")
 	go replica.sendPings()
 	go replica.acceptNewServers(users, usersLock)
 }
 
+//send pings to active servers to show that the master is still running
 func (replica *ReplicaInfo) sendPings() {
 	for {
 		time.Sleep(1 * time.Second)
@@ -135,6 +141,7 @@ func (replica *ReplicaInfo) sendPings() {
 	}
 }
 
+//accept a ping from the master and set the master if it is different from the previously stored master
 func (replica *ReplicaInfo) AcceptPing(master int) {
     if master != replica.masterId {
         replica.masterId = master
@@ -152,6 +159,8 @@ func (replica *ReplicaInfo) AcceptPing(master int) {
     }
 }
 
+//send a command request from the master to the replica servers, the master behaves as the frontend would to the
+//master server, this ensures data consistancy between the master and the replicas
 func (replica *ReplicaInfo) PropagateRequest(request CommandRequest) {
     replica.LOG[INFO].Println("Propagating request", request.CommandCode)
     var deadServers []int
