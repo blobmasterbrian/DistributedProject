@@ -174,6 +174,16 @@ func (replica *ReplicaInfo) PropagateRequest(request CommandRequest) {
         if err != nil {
             replica.LOG[ERROR].Println(StatusText(StatusEncodeError), err)
         }
+
+        var response CommandResponse
+        decoder := gob.NewDecoder(conn)
+        err = decoder.Decode(&response)
+        if err != nil {
+            replica.LOG[ERROR].Println(StatusText(StatusDecodeError), err)
+        }
+        if !response.Success {
+            replica.LOG[ERROR].Println("Replica at port:", port, "failed to run command:", request.CommandCode)
+        }
         conn.Close()
     }
 }
