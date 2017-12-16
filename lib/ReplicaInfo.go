@@ -258,6 +258,7 @@ func (replica *ReplicaInfo) sendNewServer(newId int) {
 }
 
 func (replica *ReplicaInfo) OnNewServer(newId int) {
+	replica.LOG[INFO].Println("New Server:", newId)
     replica.serverMutex.Lock()
     replica.activeServers = append(replica.activeServers, newId)
     replica.serverMutex.Unlock()
