@@ -60,6 +60,7 @@ func main() {
         USERS = map[string]*UserInfo{}
         USERS_LOCK.Unlock()
         replica.ResetServers()
+        userChannel = make(chan UserInfo)
         go replica.DetermineMaster(portChannel, userChannel, &USERS, USERS_LOCK)
         <-portChannel
         for uInfo := range userChannel {
@@ -90,6 +91,7 @@ func main() {
         }
         conn, err := server.Accept()
         if err != nil {
+            LOG[INFO].Println("Accept error:", err)
             nErr := err.(*net.OpError)
             if nErr.Timeout() {
                 LOG[WARNING].Println("Master Is Ded, Running Election")
@@ -104,6 +106,23 @@ func main() {
                         LOG[WARNING].Println("TCPAddr struct could not be created", err)
                     }
                     server, err = net.ListenTCP("tcp", addr)
+                    if err != nil {
+                        server, err = net.ListenTCP("tcp", addr)
+                    }
+                    if err != nil {
+                        userChannel = make(chan UserInfo)
+                        go replica.DetermineMaster(portChannel, userChannel, &USERS, USERS_LOCK)
+                        <-portChannel  // wait for replica method to set IsMaster
+                        if replica.IsMaster {
+                            loadUsers()
+                        } else {
+                            for uInfo := range userChannel {
+                                writeUser(&uInfo)
+                                USERS[uInfo.Username] = &uInfo
+                            }
+                        }
+                        portChannel <- 0  // make replica wait for load users to run
+                    }
                 } else {
                     LOG[INFO].Println("Master is chosen, accepting new commands")
                 }
