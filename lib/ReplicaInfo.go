@@ -101,7 +101,7 @@ func (replica *ReplicaInfo) StartNewMaster(users *map[string]*UserInfo, usersLoc
 
 func (replica *ReplicaInfo) sendPings() {
 	for {
-		time.Sleep(3 * time.Second)
+		time.Sleep(1 * time.Second)
 		replica.LOG[INFO].Println("Initiate Pinging", replica.activeServers)
 		for i, serverId := range replica.activeServers {
             if serverId == replica.id {

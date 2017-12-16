@@ -86,7 +86,7 @@ func main() {
     //main loop for accepting and running web server commands
     for {
         if !replica.IsMaster {
-            server.SetDeadline(time.Now().Add(15 * time.Second))
+            server.SetDeadline(time.Now().Add(3 * time.Second))
         }
         conn, err := server.Accept()
         if err != nil {
