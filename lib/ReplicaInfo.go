@@ -244,7 +244,6 @@ func (replica *ReplicaInfo) sendNewServer(newId int) {
             continue
         }
 		replica.LOG[INFO].Println("replica id:", replica.id, "port", serverId)
-		replica.serverMutex.Lock()
 		conn, err := net.Dial("tcp", ":" + strconv.Itoa(serverId))
 		if err != nil {
 			conn, err = net.Dial("tcp", ":" + strconv.Itoa(serverId))
