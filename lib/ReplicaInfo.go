@@ -223,7 +223,44 @@ func (replica *ReplicaInfo) acceptNewServers(users *map[string]*UserInfo, usersL
         }
         usersLock.RUnlock()
 		conn.Close()
+        replica.sendNewServer(newId)
 	}
+}
+
+func (replica *ReplicaInfo) sendNewServer(newId int) {
+    replica.LOG[INFO].Println("Send new Server")
+    for i, port := range replica.activeServers {
+        replica.LOG[INFO].Println("replica id:", replica.id, "port", port)
+        if port == replica.id || port == newId{
+            continue
+        }
+		replica.serverMutex.Lock()
+		conn, err := net.Dial("tcp", ":" + strconv.Itoa(port))
+		if err != nil {
+			conn, err = net.Dial("tcp", ":" + strconv.Itoa(port))
+		}
+		if err != nil {
+			replica.LOG[WARNING].Println("Server at port", port, "is dead")
+			replica.activeServers = append(replica.activeServers[:i], replica.activeServers[i+1:]...)
+			replica.serverMutex.Unlock()
+			continue
+		}
+		replica.serverMutex.Unlock()
+
+		command := CommandRequest{CommandNewServer, newId}
+		encoder := gob.NewEncoder(conn)
+		err = encoder.Encode(command)
+		if err != nil {
+			replica.LOG[ERROR].Println(StatusText(StatusEncodeError), err)
+	    }
+	    conn.Close()
+    }
+}
+
+func (replica *ReplicaInfo) OnNewServer(newId int) {
+    replica.serverMutex.Lock()
+    replica.activeServers = append(replica.activeServers, newId)
+    replica.serverMutex.Unlock()
 }
 
 func (replica *ReplicaInfo) HoldElection(masterChan chan int) {
@@ -239,6 +276,7 @@ func (replica *ReplicaInfo) HoldElection(masterChan chan int) {
 			min = elem
 		}
 	}
+    replica.masterId = min
 	replica.serverMutex.Unlock()
 	if min == replica.id {
 		replica.LOG[INFO].Println("This replica is taking over as master")
