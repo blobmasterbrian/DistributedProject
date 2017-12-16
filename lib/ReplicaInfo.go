@@ -103,19 +103,18 @@ func (replica *ReplicaInfo) sendPings() {
 	for {
 		time.Sleep(3 * time.Second)
 		replica.LOG[INFO].Println("Initiate Pinging", replica.activeServers)
-		for i, port := range replica.activeServers {
-            replica.LOG[INFO].Println("replica id:", replica.id, "port", port)
-            if port == replica.id {
+		for i, serverId := range replica.activeServers {
+            if serverId == replica.id {
                 continue
             }
-			replica.LOG[INFO].Println("Pinging server at port", port)
+			replica.LOG[INFO].Println("Master", replica.id, "Pinging server at port", serverId)
 			replica.serverMutex.Lock()
-			conn, err := net.Dial("tcp", ":" + strconv.Itoa(port))
+			conn, err := net.Dial("tcp", ":" + strconv.Itoa(serverId))
 			if err != nil {
-				conn, err = net.Dial("tcp", ":" + strconv.Itoa(port))
+				conn, err = net.Dial("tcp", ":" + strconv.Itoa(serverId))
 			}
 			if err != nil {
-				replica.LOG[WARNING].Println("Server at port", port, "is dead")
+				replica.LOG[WARNING].Println("Server at port", serverId, "is dead")
 				replica.activeServers = append(replica.activeServers[:i], replica.activeServers[i+1:]...)
 				replica.serverMutex.Unlock()
 				continue
